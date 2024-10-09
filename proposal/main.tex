@@ -87,41 +87,33 @@ negation and conjunction in the usual manner.
   \label{fig:epistemic-logic}
 \end{figure}
 
-\emph{Dynamic} epistemic logic additionally includes \emph{actions} that cause the knowledge of
-agents to change. Concretely, an agent \(a\) may \emph{announce} \(\phi\) to another agent \(a'\),
-written \([\phi]_{a'}\). We write \([\phi]_{a'} \psi\) to denote that after \(\phi\) is announced to
-agent \(a'\), \(\psi\) is true. For example, if Cheryl knows that Alice is exactly two years older
-than Bob but knows neither person's age, and Alice informs Cheryl that she is 25 years old, then
-Cheryl knows that Bob is 23 years old.
-
-We may also add the deontic modalities for \emph{obligation} \(O_a\) and \emph{permission} \(P_a\)
-to describe epistemic obligations, that is, statements about obligation or permission of knowledge.
-For example, \(O_a K_b \phi\) means that it is obligatory for agent \(a\) to ensure that agent \(b\)
-knows \(\phi\), and \(P_a K_b \phi\) means that is permitted for agent \(a\) to allow agent \(b\) to
-know \(\phi\). Importantly, we restrict these deontic modalities to appear only outside the scope of
-the epistemic modalities, i.e. \(K_a O_b \phi\) and \(K_a P_b \phi\) are \emph{not} valid sentences.
-
-This restriction makes the algorithmic verification of epistemic obligations significantly easier.
-To establish that it is obligatory that \(\phi\), it is sufficient to establish that \(\phi\) holds:
-\(\vdash \phi\) implies \(\vdash O_a \phi\). Thus checking \(O_a K_b \phi\) requires only checking
-\(K_b \phi\). And since we may define \(P_a \phi = \lnot O_a \lnot \phi\), checking that \(\lnot P_a
-K_b \phi\) (it is \emph{not} permitted for \(a\) to know \(\phi\)) holds entails only checking that
-\(\lnot \lnot O_a \lnot K_b \phi = O_a \lnot K_b \phi\), which entails only checking that  \(\lnot
-K_b \phi\) holds.
-
-There are additional inference rules governing the distribution of the various modalities over
-universal and existential quantification and implication. We omit the axioms of the system for
-brevity.
+Flavors of \emph{dynamic} epistemic logic additionally includes \emph{actions} that cause the
+knowledge of agents to change. Concretely, an agent may \emph{announce} \(\phi\) to another agent
+\(a\), written \([!\phi]_{a}\). We write \([!\phi]_{a} \psi\) to denote that after \(\phi\) is
+announced to agent \(a\), \(\psi\) is true. For example, if Cheryl knows that Alice is exactly two
+years older than Bob but knows neither person's age, and Alice informs Cheryl that she is 25 years
+old, then Cheryl knows that Bob is 23 years old.
 
 We now have an expressive logical system that can intuitively describe a wide variety of privacy and
-security policies. For example, consider a web server \(s\) that may send messages to some
-recipient \(r\) but must not send some data \(\alpha\). Rather than declare that \(s\) is not
-permitted to announce \(\alpha\) to \(r\), we may formulate an epistemic norm \(\lnot P_s K_r
-\alpha\) for the prohibition for \(s\) that \(r\) comes to know \(\alpha\).
+security policies. For example, consider a web server (\(s\)) that may send messages to some
+recipient (\(r\)) but must not send some data (\(\alpha\)). We may formulate \(\lnot K_r \alpha\) to
+state that \(r\) does not come to know \(\alpha\).
 
-We can also consider more complex policies. Suppose that an online service \(s\) must give a user
-\(u\) their data \(d\) if a request \(y\) for it is made. This policy corresponds to the implication
-\(K_s y \to O_s K_u d\).
+We can also describe more complex policies. Suppose that an online service (\(s\)) must give a user
+(\(u\)) their data (\(\alpha\)) if a request for it is made (\(y\)). We can describe this policy by
+the implication \(K_s y \to K_u \alpha\). For a different user (\(u'\)), it should be that \(\lnot
+K_{u'} \alpha\); of course, the announcement of \(\alpha\) to \(u'\) would be in violation of the
+policy, as \([!\alpha]_{u'} K_{u'} \alpha\) is valid. If the data consists of only \(\beta\) and
+\(\gamma\), that is, \(\alpha \leftrightarrow \beta \land \gamma\), another user may be permitted to
+know one piece but not the other. Indeed, \(\lnot K_{u'} \alpha\) implies \(\lnot (K_{u'} \beta
+\land K_{u'} \gamma)\), or, equivalently, \(\lnot K_{u'} (\beta \land \gamma)\).
+
+In addition, we may describe \emph{public} and \emph{group} announcements, in which knowledge may be
+announced to \emph{all} agents \(I\) (written \([!\phi] \psi\)) or some restricted group of agents
+\(G \subseteq I\) (written \([!\phi]_G \psi\)), respectively. Group announcement may be seen as a
+generalization of both public and individual announcement. There are additional inference rules
+governing the distribution of the knowledge modality over universal and existential quantification
+and implication. For the sake of brevity, we omit the axioms of the system.
 
 In the rest of the proposal, we describe how this dynamic epistemic logic is adapted for
 fine-grained static information flow control via the \Hermit{} library.
@@ -154,7 +146,7 @@ fn hash(unhashed: String) -> String {
 }
 
 #[agent(secret)]
-#[have(forall a, !P(a.K(pwd))]
+#[have(forall a, !a.K(pwd)]
 pub fn register(username: String) {
   let pwd = ...
   store(username, pwd)
@@ -184,24 +176,23 @@ The developer then uses the \lstinline{have} attribute to declare the security p
 functions; these are epistemic obligations. In this case, the policy is that the password does not
 leave this critical region, i.e. no agent but \lstinline{secret} knows the data of \lstinline{pwd}.
 This policy is formulated as a universal quantification over all (other) agents: for any (other)
-agent \lstinline{a}, it is not (\lstinline{!}) permitted (\lstinline{P}) for agent
-\lstinline{secret} that agent \lstinline{a} comes to know the data of \lstinline{pwd}
-(\lstinline{a.K(pwd)}). Using the symbols of \cref{sec:background-del}, \(\forall a, \lnot
-P_{\texttt{secret}} K_a \text{\lstinline{pwd}}\). In other words, code attached to the agent
-\lstinline{secret} is prohibited from causing the password to leak into the code attached to any
-other agent.
+agent \lstinline{a}, it is not (\lstinline{!}) the case that agent \lstinline{a} comes to know the
+data of \lstinline{pwd} (\lstinline{a.K(pwd)}). Using the symbols of \cref{sec:background-del},
+\(\forall a, \lnot K_a \text{\lstinline{pwd}}\). In other words, code attached
+to the agent \lstinline{secret} is prohibited from causing the password to leak into the code
+attached to any other agent.
 
 In general, \lstinline{have} assertions may refer to any parameter or any variable bound in the body
 of the function. \lstinline{have} declarations may also appear on \lstinline{let} declarations or
 even data itself; one could instead write either of the following:
 
 \begin{lstlisting}[firstnumber=16]
-#[have(forall a, !P(a.K(pwd))]
+#[have(forall a, !a.K(pwd)]
 let pwd = ...
 \end{lstlisting}
 
 \begin{lstlisting}[firstnumber=16]
-let pwd = #[have(pwd => forall a, !P(a.K(pwd))]
+let pwd = #[have(pwd => forall a, !a.K(pwd)]
           ...
 \end{lstlisting}
 
@@ -259,11 +250,14 @@ used, the agent must already know the data. For instance, let us consider again 
 the agent \lstinline{db} just by annotating \lstinline{store} with \lstinline{#[forgets(pwd_hash)]};
 \Hermit{} will still detect a violation of the policy at the call to \lstinline{store} on line 17.
 Of course, if \lstinline{store} is annotated with \lstinline{#[agent(secret)]}, all guarantees are
-abandoned (in much the same way that declaring items \lstinline{unsafe} give up memory safety
+abandoned (in much the same way that declaring items \lstinline{unsafe} forsakes memory safety
 guarantees).\footnote{Please tell me if any risks relating to \lstinline{forgets} jump out.}
 
-The name \lstinline{forgets} is hopefully alarming enough to generate some caution. As with
-\lstinline{have}, the \lstinline{forgets} annotation can also appear on individual bindings or data.
+The name \lstinline{forgets} is hopefully alarming enough to generate some caution. Further linting
+processes could ensure that only trusted developers may apply the \lstinline{forgets} annotation.
+
+As with the \lstinline{have} annotation, the \lstinline{forgets} annotation can also appear on
+individual bindings or data.
 
 % \section{Formal Design}
 % In this section, we discuss the formal design a relatively high level. Using the library-provided
@@ -286,6 +280,8 @@ The name \lstinline{forgets} is hopefully alarming enough to generate some cauti
 information flow is computed using the Flowistry library \cite{crichton_2022a}, and assertions are
 checked by dispatching SMCDEL \cite{gattinger_2018a}, a symbolic model checker for dynamic epistemic
 logic.
+
+\section{Evaluation}
 
 \bibliographystyle{plain}
 \bibliography{main.bib}
