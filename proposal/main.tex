@@ -9,6 +9,8 @@
 \usepackage{mathtools}
 
 \usepackage{xurl}
+\urlstyle{same}
+
 \usepackage[capitalise]{cleveref}
 \crefformat{section}{\S#2#1#3}
 \crefformat{subsection}{\S#2#1#3}
@@ -47,7 +49,7 @@
 
 \section{Introduction}
 
-Epistemic (from the Greek \emph{epistēmē}, "knowledge") logics present formal systems for reasoning about knowledge,
+Epistemic (from the Greek \emph{epistēmē}, ``knowledge'') logics present formal systems for reasoning about knowledge,
 belief, and related notions. Whilst of intense philosophical interest, these logics have also been
 the subject of significant practical interest in computer science and other fields, especially in
 artificial intelligence and multi-agent systems. We suggest that they also provide an intuitive
@@ -241,7 +243,7 @@ Consequently, the output is no longer considered a forward dependency of the dat
 the output is moved to \lstinline{store}, \Hermit{} considers it---but not the password---to have
 been announced to the agent \lstinline{db}. Now, the policy is satisfied. In effect, the output of
 \lstinline{hash} is declassified. In another view, agents to whom the output is announced know the
-output but "forget" that it has anything to do with the password in \lstinline{unhashed}.
+output but ``forget'' that it has anything to do with the password in \lstinline{unhashed}.
 
 Needless to say, this attribute should probably be used sparingly and carefully. Luckily, \Hermit's
 design provides some safeguards against improper use. Specifically, where \lstinline{forgets} is
@@ -282,6 +284,25 @@ checked by dispatching SMCDEL \cite{gattinger_2018a}, a symbolic model checker f
 logic.
 
 \section{Evaluation}
+
+In such a system, we are firstly concerned with correctness, which depends primarily on the
+correctness of the Flowistry library \cite{crichton_2022a} and SMCDEL \cite{gattinger_2018a}.
+However, given resource constraints, we focus in this work on the usability of \Hermit{} itself by
+pursuing case studies of its application to existing systems.
+
+We perform preliminary evaluation of \Hermit{}'s expressiveness and ease of use on WebSubmit
+\cite{schwarzkopf_2022a}, an existing web application for collecting student homework submissions.
+WebSubmit consists of approximately 1,000 lines of Rust code and uses the \cite{benitez_2024a} web
+framework. In this small case study, we attempt to address the following questions:
+
+\begin{itemize}
+  \item How flexible is \Hermit{} in expressing realistic information flow control policies? Are
+    there policies that are difficult or cumbersome to express in dynamic epistemic logic? Are there
+    policies for which dynamic epistemic logic is well-suited?
+
+  \item How much developer effort is required to apply \Hermit{}? We explore several different
+    metrics, such as annotations-per-function or annotations-per-module.
+\end{itemize}
 
 \bibliographystyle{plain}
 \bibliography{main.bib}
