@@ -31,6 +31,8 @@
   tabsize=2,
 }
 
+\newcommand{\mlstinline}[1]{\ensuremath{\text{\lstinline{#1}}}}
+
 \newcommand{\Hermit}{\textsc{Hermit}}
 
 \begin{document}
@@ -130,12 +132,12 @@ call \lstinline{hash} and \lstinline{pwd} is passed to \lstinline{store}, this p
 respected.
 
 To enforce the desired security policy, the developer uses three library-provided attribute macros:
-\lstinline{agent}, \lstinline{have}, and \lstinline{forgets}.
+\lstinline{agent}, \lstinline{ensure}, and \lstinline{forgets}.
 
 \begin{figure}
   \centering
   \begin{lstlisting}
-use hermit::{agent, have, forgets};
+use hermit::{agent, ensure, forgets};
 
 fn store(username: String, pwd_hash: String) {
   ...
@@ -148,13 +150,13 @@ fn hash(unhashed: String) -> String {
 }
 
 #[agent(secret)]
-#[have(forall a, !a.K(pwd)]
+#[ensure(forall a, !a.K(pwd)]
 pub fn register(username: String) {
   let pwd = ...
   store(username, pwd)
 }
   \end{lstlisting}
-  \caption{Hermit in action.}
+  \caption{\Hermit{} in action.}
   \label{fig:example}
 \end{figure}
 
@@ -165,7 +167,7 @@ functions with the agent \lstinline{secret}. This means that the agent \lstinlin
 the variables in these functions (including the parameters) belong to the agent \lstinline{secret}.
 
 Notice that \lstinline{store} is \emph{not} annotated by \lstinline{agent}. \Hermit{} automatically
-assigns it to an anonymous agent (we will call this agent \lstinline{db} for the purposes of
+assigns it to an anonymous default agent (we will call this agent \lstinline{db} for the purposes of
 explanation), and that agent knows all of the data in the function.
 
 Before continuing, it is important to distinguish between \emph{data} (the objects themselves) and
@@ -174,7 +176,7 @@ each variable belongs to a single agent. This distinction is vital for the infor
 analysis, which we describe later.
 
 \paragraph{Declaring policies}
-The developer then uses the \lstinline{have} attribute to declare the security policies of these
+The developer then uses the \lstinline{ensure} attribute to declare the security policies of these
 functions; these are epistemic obligations. In this case, the policy is that the password does not
 leave this critical region, i.e. no agent but \lstinline{secret} knows the data of \lstinline{pwd}.
 This policy is formulated as a universal quantification over all (other) agents: for any (other)
@@ -184,26 +186,26 @@ data of \lstinline{pwd} (\lstinline{a.K(pwd)}). Using the symbols of \cref{sec:b
 to the agent \lstinline{secret} is prohibited from causing the password to leak into the code
 attached to any other agent.
 
-In general, \lstinline{have} assertions may refer to any parameter or any variable bound in the body
-of the function. \lstinline{have} declarations may also appear on \lstinline{let} declarations or
+In general, \lstinline{ensure} assertions may refer to any parameter or any variable bound in the body
+of the function. \lstinline{ensure} declarations may also appear on \lstinline{let} declarations or
 even data itself; one could instead write either of the following:
 
 \begin{lstlisting}[firstnumber=16]
-#[have(forall a, !a.K(pwd)]
+#[ensure(forall a, !a.K(pwd)]
 let pwd = ...
 \end{lstlisting}
 
 \begin{lstlisting}[firstnumber=16]
-let pwd = #[have(pwd => forall a, !a.K(pwd)]
+let pwd = #[ensure(pwd => forall a, !a.K(pwd)]
           ...
 \end{lstlisting}
 
 \paragraph{Enforcing policies}
 \Hermit{} statically enforces policies by (1) computing information flow and (2) checking that all
-\lstinline{have} assertions hold.
+\lstinline{ensure} assertions hold.
 
 In the first step, \Hermit{} computes the flow, i.e. the all the set of \emph{forward dependencies},
-for each piece of data with a \lstinline{have} annotation. In \cref{fig:example}, since
+for each piece of data with a \lstinline{ensure} annotation. In \cref{fig:example}, since
 \lstinline{pwd} is passed to \lstinline{store}, \lstinline{pwd_hash} is a forward dependency of the
 password.
 
@@ -212,9 +214,31 @@ Recall that each variable \lstinline{x} belongs to some agent \lstinline{a}.
 corresponding agent of the variable. For example, when the data of \lstinline{pwd} is moved into
 \lstinline{pwd_hash}, \Hermit{} understands this operation as the announcement of the data to the
 agent \lstinline{db}! Hopefully it is clear that this announcement is in direct violation of the
-policy given by the \lstinline{have} policy once the announcement is made, the agent
+policy given by the \lstinline{ensure} policy once the announcement is made, the agent
 \lstinline{db} \emph{knows} the data of \lstinline{pwd}, but the policy states that no other agents
 are permitted to know the password. \Hermit{} is able to compute this violation and report an error.
+
+Formally, let \(F(\mlstinline{pwd}) = \{\mlstinline{pwd_hash}\} \cup D\) be the forward dependencies
+of \lstinline{pwd}, where \(D\) is the forward dependencies of \lstinline{pwd_hash}. Suppose that
+the control flow of \lstinline{pwd_hash} is contained within \lstinline{store}, i.e. all members of
+\(D'\) (and thus \(F(\mlstinline{pwd})\)) are of agent \lstinline{db}.
+
+Then, \Hermit{} computes the validity of
+\[%
+  [\mlstinline{pwd}]_\mlstinline{db} \forall a \in A^{*}(F(\mlstinline{pwd})), \lnot K_a \mlstinline{pwd}
+\]%
+where \(A^{*}(D) = \{A(x) \mid x \in D\}\) and \(A(x)\) is the agent of the variable \(x\). Since
+\(A^{*}(F(\mlstinline{pwd})) = A^{*}(\{\mlstinline{pwd_hash}\} \cup D) =
+\{A(\mlstinline{pwd_hash})\} \cup A^{*}(D) = \{\mlstinline{db}\}\), we have, equivalently,
+\[%
+  [\mlstinline{pwd}]_\mlstinline{db} \forall a \in \{\mlstinline{db}\}, \lnot K_a \mlstinline{pwd}
+    =
+  [\mlstinline{pwd}]_\mlstinline{db} \bigwedge_{\{\mlstinline{db}\}} \lnot K_a \mlstinline{pwd}
+\]%
+The resulting statement is clearly invalid:
+\[%
+  [\mlstinline{pwd}]_\mlstinline{db} \lnot K_\mlstinline{db} \mlstinline{pwd}
+\]%
 
 \paragraph{Declassification}
 Let us now suppose that the developer correctly hashes the password using \lstinline{hash} before
@@ -253,35 +277,18 @@ the agent \lstinline{db} just by annotating \lstinline{store} with \lstinline{#[
 \Hermit{} will still detect a violation of the policy at the call to \lstinline{store} on line 17.
 Of course, if \lstinline{store} is annotated with \lstinline{#[agent(secret)]}, all guarantees are
 abandoned (in much the same way that declaring items \lstinline{unsafe} forsakes memory safety
-guarantees).\footnote{Please tell me if any risks relating to \lstinline{forgets} jump out.}
+guarantees).
 
 The name \lstinline{forgets} is hopefully alarming enough to generate some caution. Further linting
-processes could ensure that only trusted developers may apply the \lstinline{forgets} annotation.
-
-As with the \lstinline{have} annotation, the \lstinline{forgets} annotation can also appear on
+processes could ensure that only trusted developers may apply the \lstinline{forgets} annotation. As
+with the \lstinline{ensure} annotation, the \lstinline{forgets} annotation can also appear on
 individual bindings or data.
-
-% \section{Formal Design}
-% In this section, we discuss the formal design a relatively high level. Using the library-provided
-% macros, the developer
-
-% \begin{enumerate}
-  % \item defines a set of agents \(I^{*} = \{a_1, a_2, \ldots\}\), such that the set of all agents
-    % \(I = I^{*} \cup \{a_0\}\), where $a_0$ denotes a default agent.
-
-  % \item declares a set of epistemic obligations $\Phi$ in relation to certain data. These
-    % obligations are statements in the language of \cref{sec:background-del}.
-
-  % \item erases certain announcements by declaring the independence of the associated data from
-    % otherwise dependent data.
-% \end{enumerate}
 
 \section{Implementation}
 
-\Hermit{} is\footnote{will be} implemented as a library of procedural macros for Rust. Internally,
-information flow is computed using the Flowistry library \cite{crichton_2022a}, and assertions are
-checked by dispatching SMCDEL \cite{gattinger_2018a}, a symbolic model checker for dynamic epistemic
-logic.
+\Hermit{} is implemented as a library of procedural macros for Rust. Internally, information flow is
+computed using the Flowistry library \cite{crichton_2022a}, and assertions are checked by
+dispatching SMCDEL \cite{gattinger_2018a}, a symbolic model checker for dynamic epistemic logic.
 
 \section{Evaluation}
 
