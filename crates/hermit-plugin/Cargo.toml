@@ -1,0 +1,17 @@
+[package]
+name = "hermit-plugin"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.rust-analyzer]
+rustc_private = true
+
+[dependencies]
+hermit-core = { path = "../hermit-core" }
+
+rustc_plugin = "0.8.0-nightly-2024-01-06"
+rustc_utils = "0.8.0-nightly-2024-01-06"
+
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+flowistry = "0.5"
