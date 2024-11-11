@@ -1,0 +1,9 @@
+[package]
+name = "password"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+md5 = "0.7"
+
+hermit-attributes = { path = "../../crates/hermit-attributes" }
