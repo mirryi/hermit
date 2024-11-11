@@ -1,2 +1,7 @@
 proposal/build/
 proposal.pdf
+
+target/
+
+dist/
+dist-newstyle/
