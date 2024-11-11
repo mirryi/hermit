@@ -1,0 +1,10 @@
+[package]
+name = "hermit-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+flowistry = "0.5.42"
+
+epistemic = { path = "../epistemic" }
+epistemic-smcdel = { path = "../epistemic-smcdel" }
