@@ -1,7 +1,7 @@
 extern crate rustc_middle;
 
 use flowistry::infoflow::FlowResults;
-use hermit_core::FlowAnalysis as HermitFlowAnalysis;
+use hermit_core::Flow as HermitFlowAnalysis;
 use rustc_middle::mir::Location;
 
 pub struct FlowAnalysis<'a, 'tcx> {
@@ -9,9 +9,9 @@ pub struct FlowAnalysis<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> HermitFlowAnalysis for FlowAnalysis<'a, 'tcx> {
-    type Id = Location;
+    type Location = Location;
 
-    fn flow(&self, name: &Self::Id) -> Vec<Self::Id> {
+    fn flow(&self, name: &Self::Location) -> Vec<Self::Location> {
         todo!()
     }
 }

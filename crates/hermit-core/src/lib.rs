@@ -1,37 +1,53 @@
-use std::collections::HashMap;
+mod flow;
+mod network;
 
-pub trait FlowAnalysis {
-    type Id;
+use epistemic::KnowStruct;
+use flow::AnnouncementFlow;
 
-    fn flow(&self, name: &Self::Id) -> Vec<Self::Id>;
+pub use flow::Flow;
+
+pub type Formula<A, V> = epistemic::Form<A, V>;
+
+pub struct Hermit<A, F: Flow, K: KnowStruct<A, F::Value>> {
+    know: K,
+    flow: AnnouncementFlow<A, F>,
 }
 
-pub type IdAgents<I, A> = HashMap<I, A>;
-pub type Formula<I, A> = epistemic::Formula<A, I>;
-
-pub struct Hermit<I, A, F>
+impl<A, F: Flow, K: KnowStruct<A, F::Value>> Hermit<A, F, K>
 where
-    F: FlowAnalysis<Id = I>,
-{
-    law: Vec<Formula<I, A>>,
-    agents: IdAgents<I, A>,
-    flow: F,
-}
-
-impl<I, A, F> Hermit<I, A, F>
-where
-    I: Clone,
     A: Clone,
-    F: FlowAnalysis<Id = I>,
+    F::Location: Eq + Ord,
+    F::Value: Copy,
 {
-    pub fn new(law: Vec<Formula<I, A>>, agents: IdAgents<I, A>, flow: F) -> Self {
-        Self { law, agents, flow }
+    pub fn new(
+        agents: Vec<A>,
+        interest: Vec<F::Value>,
+        laws: Vec<Formula<A, F::Value>>,
+        flow: AnnouncementFlow<A, F>,
+    ) -> Self {
+        let law = Formula::Conj(laws);
+        let obs = agents.into_iter().map(|a| (a, interest.clone())).collect();
+        let know = K::new(interest, law, obs);
+        Self { know, flow }
     }
 
-    pub fn analyse(&self, forms: impl IntoIterator<Item = Formula<I, A>>) -> bool
-    where
-        F: FlowAnalysis,
-    {
-        todo!()
+    pub fn sat_all(&self, forms: impl IntoIterator<Item = Formula<A, F::Value>>) -> bool {
+        forms.into_iter().all(|form| self.sat(form))
+    }
+
+    pub fn sat(&self, form: Formula<A, F::Value>) -> bool {
+        let anns = form
+            .vocab()
+            .flat_map(|b| self.flow.announcements(*b))
+            .collect::<Vec<_>>();
+        let form = anns.into_iter().fold(form, |form, ann| {
+            Formula::GAw(
+                ann.target.members,
+                Box::new(Formula::Prop(ann.val)),
+                Box::new(form),
+            )
+        });
+
+        self.know.sat(form)
     }
 }
