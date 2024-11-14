@@ -1,8 +1,3 @@
-extern crate rustc_borrowck;
-extern crate rustc_hir;
-extern crate rustc_middle;
-extern crate rustc_span;
-
 use std::borrow::Cow;
 use std::env;
 use std::process::Command;
@@ -85,7 +80,7 @@ impl rustc_driver::Callbacks for HermitCallbacks {
         config.override_queries = Some(borrowck_facts::override_queries);
     }
 
-    fn after_crate_root_parsing<'tcx>(
+    fn after_analysis<'tcx>(
         &mut self,
         _compiler: &rustc_interface::interface::Compiler,
         queries: &'tcx rustc_interface::Queries<'tcx>,
@@ -97,68 +92,63 @@ impl rustc_driver::Callbacks for HermitCallbacks {
             let body_id = hir
                 .items()
                 .find_map(|id| match hir.item(id).kind {
-                    ItemKind::Fn(_, _, body) => Some(body),
+                    ItemKind::Fn(_, _, body_id) => Some(body_id),
                     _ => None,
                 })
                 .unwrap();
 
             let def_id = hir.body_owner_def_id(body_id);
-            let body_with_facts = borrowck_facts::get_body_with_borrowck_facts(tcx, def_id);
+            tcx.get_attrs_unchecked(def_id.into())
+                .iter()
+                .for_each(|a| println!("{:?}", a.name_or_empty()));
 
-            compute_dependencies(tcx, body_id, body_with_facts)
+            // let body_with_facts = borrowck_facts::get_body_with_borrowck_facts(tcx, def_id);
+
+            // compute_dependencies(tcx, body_id, body_with_facts)
         });
+
         rustc_driver::Compilation::Stop
     }
-
-    // fn after_analysis<'tcx>(
-    // &mut self,
-    // _compiler: &rustc_interface::interface::Compiler,
-    // queries: &'tcx rustc_interface::Queries<'tcx>,
-    // ) -> rustc_driver::Compilation {
-    // queries.global_ctxt().unwrap().enter(|tcx| todo!());
-
-    // rustc_driver::Compilation::Continue
-    // }
 }
 
-fn compute_dependencies<'tcx>(
-    tcx: TyCtxt<'tcx>,
-    body_id: BodyId,
-    body_with_facts: &BodyWithBorrowckFacts<'tcx>,
-) {
-    println!("Body:\n{}", body_with_facts.body.to_string(tcx).unwrap());
+// fn compute_dependencies<'tcx>(
+// tcx: TyCtxt<'tcx>,
+// body_id: BodyId,
+// body_with_facts: &BodyWithBorrowckFacts<'tcx>,
+// ) {
+// println!("Body:\n{}", body_with_facts.body.to_string(tcx).unwrap());
 
-    // This computes the core information flow data structure. But it's not very
-    // visualizable, so we need to post-process it with a specific query.
-    let results = flowistry::infoflow::compute_flow(tcx, body_id, body_with_facts);
+// // This computes the core information flow data structure. But it's not very
+// // visualizable, so we need to post-process it with a specific query.
+// let results = flowistry::infoflow::compute_flow(tcx, body_id, body_with_facts);
 
-    // We construct a target of the first argument at the start of the function.
-    let arg_local = Local::from_usize(1);
-    let arg_place = Place::make(arg_local, &[], tcx);
-    let targets = vec![vec![(arg_place, LocationOrArg::Arg(arg_local))]];
+// // We construct a target of the first argument at the start of the function.
+// let arg_local = Local::from_usize(1);
+// let arg_place = Place::make(arg_local, &[], tcx);
+// let targets = vec![vec![(arg_place, LocationOrArg::Arg(arg_local))]];
 
-    // Then use Flowistry to compute the locations and places influenced by the target.
-    let location_deps =
-        flowistry::infoflow::compute_dependencies(&results, targets.clone(), Direction::Forward)
-            .remove(0);
+// // Then use Flowistry to compute the locations and places influenced by the target.
+// let location_deps =
+// flowistry::infoflow::compute_dependencies(&results, targets.clone(), Direction::Forward)
+// .remove(0);
 
-    // And print out those forward dependencies. Note that while each location has an
-    // associated span in the body, i.e. via `body.source_info(location).span`,
-    // these spans are pretty limited so we have our own infrastructure for mapping MIR
-    // back to source. That's the Spanner class and the location_to_span method.
-    println!("The forward dependencies of targets {targets:?} are:");
-    let body = &body_with_facts.body;
-    let spanner = Spanner::new(tcx, body_id, body);
-    let source_map = tcx.sess.source_map();
-    for location in location_deps.iter() {
-        let spans = Span::merge_overlaps(spanner.location_to_spans(
-            *location,
-            body,
-            EnclosingHirSpans::OuterOnly,
-        ));
-        println!("Location {location:?}:");
-        for span in spans {
-            println!("{}", source_map.span_to_snippet(span).unwrap(),);
-        }
-    }
-}
+// // And print out those forward dependencies. Note that while each location has an
+// // associated span in the body, i.e. via `body.source_info(location).span`,
+// // these spans are pretty limited so we have our own infrastructure for mapping MIR
+// // back to source. That's the Spanner class and the location_to_span method.
+// println!("The forward dependencies of targets {targets:?} are:");
+// let body = &body_with_facts.body;
+// let spanner = Spanner::new(tcx, body_id, body);
+// let source_map = tcx.sess.source_map();
+// for location in location_deps.iter() {
+// let spans = Span::merge_overlaps(spanner.location_to_spans(
+// *location,
+// body,
+// EnclosingHirSpans::OuterOnly,
+// ));
+// println!("Location {location:?}:");
+// for span in spans {
+// println!("{}", source_map.span_to_snippet(span).unwrap(),);
+// }
+// }
+// }
