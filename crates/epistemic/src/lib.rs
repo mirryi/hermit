@@ -2,12 +2,19 @@ use std::iter;
 
 use iter_tree::Tree;
 
-pub trait Semantics<A, P> {
-    fn sat(&self, form: Form<A, P>) -> bool;
+pub trait Semantics {
+    type Agent;
+    type Prop;
+
+    fn sat(&self, form: Form<Self::Agent, Self::Prop>) -> bool;
 }
 
-pub trait KnowStruct<A, P>: Semantics<A, P> {
-    fn new(vocab: Vec<P>, law: Form<A, P>, obs: Vec<(A, Vec<P>)>) -> Self;
+pub trait KnowStruct: Semantics {
+    fn new(
+        vocab: Vec<Self::Prop>,
+        law: Form<Self::Agent, Self::Prop>,
+        obs: Vec<(Self::Agent, Vec<Self::Prop>)>,
+    ) -> Self;
 }
 
 #[derive(Debug, Clone)]
@@ -69,6 +76,49 @@ impl<A, P> Form<A, P> {
                 let n2 = p2.vocab_tree()?;
                 Some(Tree::Node(vec![n1, n2]))
             }
+        }
+    }
+}
+
+impl<'p, A, P> From<&'p Form<A, P>> for Form<&'p A, &'p P> {
+    fn from(form: &'p Form<A, P>) -> Self {
+        match form {
+            Form::Top => Form::Top,
+            Form::Bot => Form::Bot,
+            Form::Prop(b) => Form::Prop(b),
+            Form::Neg(p) => Form::Neg(Box::new(p.as_ref().into())),
+            Form::Conj(ps) => Form::Conj(ps.iter().map(Into::into).collect()),
+            Form::Disj(ps) => Form::Conj(ps.iter().map(Into::into).collect()),
+            Form::Xor(ps) => Form::Conj(ps.iter().map(Into::into).collect()),
+            Form::Impl(p1, p2) => {
+                Form::Impl(Box::new(p1.as_ref().into()), Box::new(p2.as_ref().into()))
+            }
+            Form::Equiv(p1, p2) => {
+                Form::Equiv(Box::new(p1.as_ref().into()), Box::new(p2.as_ref().into()))
+            }
+            Form::Forall(xs, p) => Form::Forall(xs.iter().collect(), Box::new(p.as_ref().into())),
+            Form::Exist(xs, p) => Form::Forall(xs.iter().collect(), Box::new(p.as_ref().into())),
+            Form::K(ag, p) => Form::K(ag, Box::new(p.as_ref().into())),
+            Form::CK(ags, p) => Form::CK(ags.iter().collect(), Box::new(p.as_ref().into())),
+            Form::DK(ags, p) => Form::DK(ags.iter().collect(), Box::new(p.as_ref().into())),
+            Form::CKw(ags, p) => Form::CKw(ags.iter().collect(), Box::new(p.as_ref().into())),
+            Form::DKw(ags, p) => Form::DKw(ags.iter().collect(), Box::new(p.as_ref().into())),
+            Form::PA(p1, p2) => {
+                Form::PA(Box::new(p1.as_ref().into()), Box::new(p2.as_ref().into()))
+            }
+            Form::PAw(p1, p2) => {
+                Form::PAw(Box::new(p1.as_ref().into()), Box::new(p2.as_ref().into()))
+            }
+            Form::GA(ags, p1, p2) => Form::GA(
+                ags.iter().collect(),
+                Box::new(p1.as_ref().into()),
+                Box::new(p2.as_ref().into()),
+            ),
+            Form::GAw(ags, p1, p2) => Form::GAw(
+                ags.iter().collect(),
+                Box::new(p1.as_ref().into()),
+                Box::new(p2.as_ref().into()),
+            ),
         }
     }
 }
