@@ -1,6 +1,5 @@
 use paste::paste;
 use proc_macro2::TokenStream;
-use quote::quote;
 use syn::{parse::Parse, Item};
 
 macro_rules! parse_macro_input2 {
@@ -93,26 +92,6 @@ pub trait UserItemAttribute {
 
     fn impl_default(&self, _args: Self::Args, _item: Item) -> TokenStream {
         unimplemented!()
-    }
-}
-
-pub(crate) trait IntoDocItemAttribute {
-    fn prefix(&self) -> String;
-}
-
-impl<Attr> UserItemAttribute for Attr
-where
-    Attr: IntoDocItemAttribute,
-{
-    type Args = TokenStream;
-
-    fn impl_default(&self, args: Self::Args, item: Item) -> TokenStream {
-        let doc = format!("{}{}", self.prefix(), args);
-
-        quote! {
-            #[doc = #doc]
-            #item
-        }
     }
 }
 

@@ -100,7 +100,7 @@ impl rustc_driver::Callbacks for HermitCallbacks {
             let def_id = hir.body_owner_def_id(body_id);
             tcx.get_attrs_unchecked(def_id.into())
                 .iter()
-                .for_each(|a| println!("{:?}", a.name_or_empty()));
+                .for_each(|a| println!("{:?}\n", a.kind));
 
             // let body_with_facts = borrowck_facts::get_body_with_borrowck_facts(tcx, def_id);
 
