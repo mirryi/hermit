@@ -16,7 +16,7 @@ pub struct Channel<A> {
 
 /// A network of agents and channels.
 #[derive(Debug, Clone)]
-pub struct Network<L, A> {
+pub struct Network<A, L> {
     /// The channels at each location.
     pub channels: BTreeMap<L, Channel<A>>,
 }
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<L, A> Network<L, A>
+impl<A, L> Network<A, L>
 where
     L: Eq + Ord,
 {

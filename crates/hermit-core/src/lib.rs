@@ -1,53 +1,40 @@
+use flow::Formula;
+
 mod flow;
 mod network;
 
-use epistemic::KnowStruct;
-use flow::AnnouncementFlow;
+// /// A reference an agent.
+// #[derive(Debug, Clone)]
+// pub struct AgentRef<A> {
+// name: A,
+// }
 
-pub use flow::Flow;
+// /// A `have` assertion.
+// #[derive(Debug, Clone)]
+// pub struct HaveInfo<A, V> {
+// form: Formula<A, V>,
+// }
 
-pub type Formula<A, V> = epistemic::Form<A, V>;
+// #[derive(Debug, Clone)]
+// pub struct EnsureInfo<A, V> {
+// form: Formula<A, V>,
+// }
 
-pub struct Hermit<A, F: Flow, K: KnowStruct<A, F::Value>> {
-    know: K,
-    flow: AnnouncementFlow<A, F>,
-}
+// #[derive(Debug, Clone)]
+// pub struct ForgetInfo<L> {
+// subject: L,
+// dependencies: L,
+// }
 
-impl<A, F: Flow, K: KnowStruct<A, F::Value>> Hermit<A, F, K>
-where
-    A: Clone,
-    F::Location: Eq + Ord,
-    F::Value: Copy,
-{
-    pub fn new(
-        agents: Vec<A>,
-        interest: Vec<F::Value>,
-        laws: Vec<Formula<A, F::Value>>,
-        flow: AnnouncementFlow<A, F>,
-    ) -> Self {
-        let law = Formula::Conj(laws);
-        let obs = agents.into_iter().map(|a| (a, interest.clone())).collect();
-        let know = K::new(interest, law, obs);
-        Self { know, flow }
-    }
+// #[derive(Debug, Clone)]
+// pub struct FunctionInfo<A, L, V> {
+// agent: AgentRef<A>,
+// haves: Vec<HaveInfo<A, V>>,
+// ensures: Vec<EnsureInfo<A, V>>,
+// forgets: Vec<ForgetInfo<A, V>>,
+// }
 
-    pub fn sat_all(&self, forms: impl IntoIterator<Item = Formula<A, F::Value>>) -> bool {
-        forms.into_iter().all(|form| self.sat(form))
-    }
-
-    pub fn sat(&self, form: Formula<A, F::Value>) -> bool {
-        let anns = form
-            .vocab()
-            .flat_map(|b| self.flow.announcements(*b))
-            .collect::<Vec<_>>();
-        let form = anns.into_iter().fold(form, |form, ann| {
-            Formula::GAw(
-                ann.target.members,
-                Box::new(Formula::Prop(ann.val)),
-                Box::new(form),
-            )
-        });
-
-        self.know.sat(form)
-    }
-}
+// #[derive(Debug, Clone)]
+// pub struct Info {
+// functions: Vec<FunctionInfo<A, V>>,
+// }

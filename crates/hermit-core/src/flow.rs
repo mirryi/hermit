@@ -1,7 +1,9 @@
+use epistemic::KnowStruct;
+
 use crate::network::{Announcement, Network};
 
 /// The dissemination of values to locations.
-pub trait Flow {
+pub trait ValueFlow {
     type Location;
     type Value;
 
@@ -11,20 +13,20 @@ pub trait Flow {
 
 /// A summary of the flow of announcements on a [`Network`].
 #[derive(Debug)]
-pub struct AnnouncementFlow<A, F: Flow> {
+pub struct NetworkFlow<A, F: ValueFlow> {
     /// The network.
-    network: Network<F::Location, A>,
+    network: Network<A, F::Location>,
     /// The dissemination.
     flow: F,
 }
 
-impl<A, F: Flow> AnnouncementFlow<A, F>
+impl<A, F: ValueFlow> NetworkFlow<A, F>
 where
     A: Clone,
     F::Location: Eq + Ord,
     F::Value: Copy,
 {
-    pub fn new(network: Network<F::Location, A>, flow: F) -> Self {
+    pub fn new(network: Network<A, F::Location>, flow: F) -> Self {
         Self { network, flow }
     }
 
@@ -38,5 +40,45 @@ where
             let chan = self.network.channel(&fdep)?;
             Some(chan.announcement(val))
         })
+    }
+}
+
+/// The shape of logical formulae.
+pub type Formula<A, V> = epistemic::Form<A, V>;
+
+pub struct NetworkFlowSat<A, F: ValueFlow, K: KnowStruct<A, F::Value>> {
+    know: K,
+    flow: NetworkFlow<A, F>,
+}
+
+impl<A, F: ValueFlow, K: KnowStruct<A, F::Value>> NetworkFlowSat<A, F, K>
+where
+    A: Clone,
+    F::Location: Eq + Ord,
+    F::Value: Copy,
+{
+    /// Create a [`NetworkFlowSat`].
+    pub fn new(know: K, flow: NetworkFlow<A, F>) -> Self {
+        Self { know, flow }
+    }
+
+    pub fn sat_all(&self, forms: impl IntoIterator<Item = Formula<A, F::Value>>) -> bool {
+        forms.into_iter().all(|form| self.sat(form))
+    }
+
+    pub fn sat(&self, form: Formula<A, F::Value>) -> bool {
+        let anns = form
+            .vocab()
+            .flat_map(|b| self.flow.announcements(*b))
+            .collect::<Vec<_>>();
+        let form = anns.into_iter().fold(form, |form, ann| {
+            Formula::GAw(
+                ann.target.members,
+                Box::new(Formula::Prop(ann.val)),
+                Box::new(form),
+            )
+        });
+
+        self.know.sat(form)
     }
 }
