@@ -1,0 +1,7 @@
+[package]
+name = "hermit"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hermit-attributes = { path = "../hermit-attributes" }

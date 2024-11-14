@@ -3,9 +3,24 @@
 version = 3
 
 [[package]]
+name = "hermit"
+version = "0.1.0"
+dependencies = [
+ "hermit-attributes",
+]
+
+[[package]]
 name = "hermit-attributes"
 version = "0.1.0"
 dependencies = [
+ "hermit-attributes-lib",
+]
+
+[[package]]
+name = "hermit-attributes-lib"
+version = "0.1.0"
+dependencies = [
+ "paste",
  "proc-macro2",
  "quote",
  "syn",
@@ -21,9 +36,15 @@ checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 name = "password"
 version = "0.1.0"
 dependencies = [
- "hermit-attributes",
+ "hermit",
  "md5",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "proc-macro2"

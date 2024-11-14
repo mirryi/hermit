@@ -1,19 +1,15 @@
-// use hermit_attributes::*;
-
-// #[agent(secret)]
-// #[ensure(forall a, !a.K(pwd))]
+#[hermit::agent(secret)]
+#[hermit::ensure(forall a, !a.K(pwd))]
 pub fn register(username: String, pwd: String) {
-    store(username, pwd)
+    db::store(username, pwd)
 }
 
-// #[agent(secret)]
-// #[forgets(unhashed)]
+#[hermit::agent(secret)]
+#[hermit::forgets(unhashed)]
 fn hash(unhashed: String) -> String {
-    // let digest = md5::compute(unhashed);
-    // format!("{:x}", digest)
-    unhashed
+    let digest = md5::compute(unhashed);
+    format!("{:x}", digest)
+    // unhashed
 }
 
-fn store(_username: String, _pwd_hash: String) {
-    // println!("store {}: {}", username, pwd_hash)
-}
+mod db;
