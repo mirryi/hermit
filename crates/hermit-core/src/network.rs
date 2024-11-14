@@ -14,7 +14,7 @@ pub struct Channel<A> {
     pub listeners: Group<A>,
 }
 
-/// A network of agents and channels.
+/// A collection of channels.
 #[derive(Debug, Clone)]
 pub struct Network<A, L> {
     /// The channels at each location.

@@ -4,8 +4,10 @@ use crate::network::{Announcement, Network};
 
 /// The dissemination of values to locations.
 pub trait ValueFlow {
-    type Location;
-    type Value;
+    /// The type of locations.
+    type Location: Ord;
+    /// The type of values.
+    type Value: Copy;
 
     /// Compute the locations to which `val` is sent.
     fn locations(&self, value: Self::Value) -> impl Iterator<Item = Self::Location>;
@@ -20,16 +22,16 @@ pub struct NetworkFlow<A, F: ValueFlow> {
     flow: F,
 }
 
-impl<A, F: ValueFlow> NetworkFlow<A, F>
-where
-    A: Clone,
-    F::Location: Eq + Ord,
-    F::Value: Copy,
-{
+impl<A, F: ValueFlow> NetworkFlow<A, F> {
     pub fn new(network: Network<A, F::Location>, flow: F) -> Self {
         Self { network, flow }
     }
+}
 
+impl<A, F: ValueFlow> NetworkFlow<A, F>
+where
+    A: Clone,
+{
     /// Compute the announcements of `val`.
     pub fn announcements(
         &self,
@@ -51,17 +53,17 @@ pub struct NetworkFlowSat<A, F: ValueFlow, K: KnowStruct<A, F::Value>> {
     flow: NetworkFlow<A, F>,
 }
 
-impl<A, F: ValueFlow, K: KnowStruct<A, F::Value>> NetworkFlowSat<A, F, K>
-where
-    A: Clone,
-    F::Location: Eq + Ord,
-    F::Value: Copy,
-{
+impl<A, F: ValueFlow, K: KnowStruct<A, F::Value>> NetworkFlowSat<A, F, K> {
     /// Create a [`NetworkFlowSat`].
     pub fn new(know: K, flow: NetworkFlow<A, F>) -> Self {
         Self { know, flow }
     }
+}
 
+impl<A, F: ValueFlow, K: KnowStruct<A, F::Value>> NetworkFlowSat<A, F, K>
+where
+    A: Clone,
+{
     pub fn sat_all(&self, forms: impl IntoIterator<Item = Formula<A, F::Value>>) -> bool {
         forms.into_iter().all(|form| self.sat(form))
     }
