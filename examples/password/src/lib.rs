@@ -4,13 +4,13 @@
 use hermit::*;
 
 #[agent(secret)]
-#[ensure(forall a, !a.K(pwd))]
+#[ensure(forall a: !K[a: pwd])]
 pub fn register(username: String, pwd: String) {
     db::store(username, pwd)
 }
 
 #[agent(secret)]
-#[forgets(digest: unhashed)]
+#[forget(digest: unhashed)]
 fn hash(unhashed: String) -> String {
     let digest = md5::compute(unhashed);
     format!("{:x}", digest)

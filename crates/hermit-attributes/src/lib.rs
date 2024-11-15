@@ -1,12 +1,13 @@
-use proc_macro::TokenStream;
-
-use hermit_attributes_lib::{agent, ensure, forgets, have, UserItemAttribute};
+use hermit_attributes_lib::user::{agent, ensure, forget, have, ItemAttribute};
 
 macro_rules! attribute {
     ($name:ident) => {
         #[proc_macro_attribute]
-        pub fn $name(args: TokenStream, input: TokenStream) -> TokenStream {
-            $name::UserAttribute.impl_(args.into(), input.into()).into()
+        pub fn $name(
+            args: proc_macro::TokenStream,
+            input: proc_macro::TokenStream,
+        ) -> proc_macro::TokenStream {
+            $name::Attribute.impl_(args.into(), input.into()).into()
         }
     };
 }
@@ -14,4 +15,4 @@ macro_rules! attribute {
 attribute!(agent);
 attribute!(have);
 attribute!(ensure);
-attribute!(forgets);
+attribute!(forget);
