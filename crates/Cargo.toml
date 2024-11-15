@@ -1,3 +1,0 @@
-[workspace]
-members = ["epistemic*", "hermit*", "smcdel*"]
-resolver = "2"
