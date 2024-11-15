@@ -1,5 +1,11 @@
+#![feature(rustc_private)]
+extern crate rustc_ast;
+
+use rustc_ast::AttrItem;
+
 use paste::paste;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
+use syn::Ident;
 use syn::{parse::Parse, Item};
 
 macro_rules! parse_macro_input2 {
@@ -94,6 +100,32 @@ pub trait UserItemAttribute {
         unimplemented!()
     }
 }
+
+pub trait ToolItemAttribute: Sized {
+    fn syntax(args: TokenStream) -> TokenStream;
+
+    fn parse(attr: AttrItem) -> Option<Self>;
+}
+
+pub struct ToolNamespace<'s> {
+    name: &'s str,
+}
+
+impl<'s> ToolNamespace<'s> {
+    pub const fn new(name: &'s str) -> Self {
+        Self { name }
+    }
+
+    pub const fn name(&self) -> &'s str {
+        self.name
+    }
+
+    pub fn ident(&self) -> Ident {
+        Ident::new(self.name, Span::call_site())
+    }
+}
+
+pub const TOOL: ToolNamespace = ToolNamespace::new("hermittool");
 
 pub mod agent;
 pub mod ensure;

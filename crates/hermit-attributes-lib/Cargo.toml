@@ -3,6 +3,9 @@ name = "hermit-attributes-lib"
 version = "0.1.0"
 edition = "2021"
 
+[package.metadata.rust-analyzer]
+rustc_private = true
+
 [dependencies]
 paste = "1.0"
 proc-macro2 = "1.0"

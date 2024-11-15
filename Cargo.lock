@@ -342,6 +342,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "flowistry",
+ "hermit-attributes-lib",
  "hermit-core",
  "rustc_plugin",
  "rustc_utils",
