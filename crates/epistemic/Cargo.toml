@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 iter-tree = "0.1"
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+serde = ["dep:serde"]

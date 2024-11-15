@@ -18,6 +18,7 @@ pub trait KnowStruct: Semantics {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Form<A, P> {
     Top,
     Bot,
