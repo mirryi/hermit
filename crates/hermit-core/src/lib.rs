@@ -66,7 +66,30 @@ impl<A, L> Ensure<A, L> {
     }
 }
 
+impl<L> Forgets<L> {
+    pub fn new(subject: L, dependencies: Vec<L>) -> Self {
+        Self {
+            subject,
+            dependencies,
+        }
+    }
+}
+
 impl<A, L> Info<A, L> {
+    pub fn new(
+        owners: BTreeMap<L, BTreeSet<A>>,
+        haves: Vec<Have<A, L>>,
+        ensures: Vec<Ensure<A, L>>,
+        forgets: Vec<Forgets<L>>,
+    ) -> Self {
+        Self {
+            owners,
+            haves,
+            ensures,
+            forgets,
+        }
+    }
+
     pub fn vocab(&self) -> impl Iterator<Item = &L> {
         self.haves
             .iter()
