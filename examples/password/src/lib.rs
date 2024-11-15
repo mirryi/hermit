@@ -10,7 +10,7 @@ pub fn register(username: String, pwd: String) {
 }
 
 #[agent(secret)]
-#[forgets(unhashed)]
+#[forgets(digest: unhashed)]
 fn hash(unhashed: String) -> String {
     let digest = md5::compute(unhashed);
     format!("{:x}", digest)
