@@ -1,7 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module SMCDEL.FFI where
+module Lib where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Foreign.C (CString)
@@ -42,3 +43,7 @@ instance FromJSON FFIForm
 
 instance ToJSON FFIForm
 
+foreign export ccall foo :: Int -> IO Int
+
+foo :: Int -> IO Int
+foo = return
