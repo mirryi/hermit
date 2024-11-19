@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+iter-tree = "0.1"
 thiserror = "2.0"
 
 epistemic = { path = "../epistemic" }

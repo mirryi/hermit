@@ -1,4 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::iter;
+
+use iter_tree::Tree;
 
 use super::typed::TypedForget;
 
@@ -95,5 +98,38 @@ impl<L> UntypedForget<L> {
 impl<A, L> Default for UntypedForm<A, L> {
     fn default() -> Self {
         Self::Top
+    }
+}
+
+impl<A, L> UntypedForm<A, L> {
+    /// Iterate over the propositions.
+    pub fn vocab<'a>(&'a self) -> Box<dyn Iterator<Item = &'a L> + 'a> {
+        match self.vocab_tree() {
+            Some(tree) => Box::new(tree.into_iter()),
+            None => Box::new(iter::empty()),
+        }
+    }
+
+    fn vocab_tree(&self) -> Option<Tree<&L>> {
+        match self {
+            UntypedForm::Top | UntypedForm::Bot => None,
+            UntypedForm::Prop(b) => Some(Tree::Leaf(b)),
+            UntypedForm::Neg(p)
+            | UntypedForm::Forall(_, p)
+            | UntypedForm::Exist(_, p)
+            | UntypedForm::ForG(_, _, p)
+            | UntypedForm::K(_, p)
+            | UntypedForm::CK(_, p)
+            | UntypedForm::DK(_, p) => p.vocab_tree().map(|n| Tree::Node(vec![n])),
+            UntypedForm::Conj(p1, p2)
+            | UntypedForm::Disj(p1, p2)
+            | UntypedForm::Xor(p1, p2)
+            | UntypedForm::Impl(p1, p2)
+            | UntypedForm::BiImpl(p1, p2) => {
+                let n1 = p1.vocab_tree()?;
+                let n2 = p2.vocab_tree()?;
+                Some(Tree::Node(vec![n1, n2]))
+            }
+        }
     }
 }

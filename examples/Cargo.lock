@@ -38,6 +38,7 @@ dependencies = [
  "epistemic",
  "epistemic-smcdel",
  "immutable-list",
+ "iter-tree",
  "iter-unique-ord",
  "serde",
  "thiserror",

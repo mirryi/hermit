@@ -30,7 +30,7 @@ impl ItemAttribute for Attribute {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Meta {
-    form: Form,
+    pub form: Form,
 }
 
 impl Meta {

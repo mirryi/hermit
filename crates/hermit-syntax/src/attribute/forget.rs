@@ -31,8 +31,8 @@ impl ItemAttribute for Attribute {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Meta {
-    subject: Variable,
-    dependencies: Vec<Variable>,
+    pub subject: Variable,
+    pub dependencies: Vec<Variable>,
 }
 
 impl Meta {

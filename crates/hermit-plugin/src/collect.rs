@@ -1,3 +1,9 @@
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    iter,
+};
+
+use itertools::Itertools;
 use rustc_ast::{
     token::{Lit, LitKind, Token, TokenKind},
     tokenstream::TokenTree,
@@ -8,12 +14,12 @@ use rustc_hir::{BodyId, ItemKind};
 use rustc_lexer::unescape;
 use rustc_middle::{
     hir::map::Map as HirMap,
-    mir::{Local, Place},
+    mir::{Local, Place, VarDebugInfo, VarDebugInfoContents},
     ty::TyCtxt,
 };
 use rustc_span::{def_id::LocalDefId, Span};
 use rustc_utils::{
-    mir::location_or_arg::LocationOrArg,
+    mir::{borrowck_facts, location_or_arg::LocationOrArg},
     source_map::spanner::{EnclosingHirSpans, Spanner},
     BodyExt, PlaceExt, SpanExt,
 };
@@ -35,7 +41,7 @@ impl<'tcx> Collector<'tcx> {
         Self { tcx }
     }
 
-    pub fn collect(&self) -> meta::Info {
+    pub fn collect(&self) -> meta::Meta<'tcx> {
         let hir = self.tcx.hir();
         let fns = hir
             .items()
@@ -43,11 +49,14 @@ impl<'tcx> Collector<'tcx> {
                 ItemKind::Fn(_, _, body_id) => Some(body_id),
                 _ => None,
             })
-            .map(|body_id| FnCollector::new(self.tcx, body_id))
-            .map(|fnc| fnc.collect())
+            .map(|body_id| self.collect_fn(body_id))
             .collect();
 
-        meta::Info { fns }
+        meta::Meta { fns }
+    }
+
+    pub fn collect_fn(&self, body_id: BodyId) -> meta::Function<'tcx> {
+        FnCollector::new(self.tcx, body_id).collect()
     }
 }
 
@@ -57,10 +66,10 @@ struct FnCollector<'tcx> {
 }
 
 enum AttrInfo {
-    Agent(meta::Agent),
-    Have(meta::Have),
-    Ensure(meta::Ensure),
-    Forget(meta::Forget),
+    Agent(AgentMeta),
+    Have(HaveMeta),
+    Ensure(EnsureMeta),
+    Forget(ForgetMeta),
 }
 
 impl<'tcx> FnCollector<'tcx> {
@@ -80,24 +89,96 @@ impl<'tcx> FnCollector<'tcx> {
         self.tcx.get_attrs_unchecked(self.def_id().into())
     }
 
-    fn collect(&self) -> meta::Function {
-        // collect the attributes.
-        let mut agents = Vec::new();
-        let mut haves = Vec::new();
-        let mut ensures = Vec::new();
-        let mut forgets = Vec::new();
-        let attrs = self
+    fn collect(&self) -> meta::Function<'tcx> {
+        // collect the attributes
+        let attrs: Vec<_> = self
             .attrs()
             .iter()
-            .filter_map(|attr| self.collect_attr(attr));
-        attrs.for_each(|attr| match attr {
-            AttrInfo::Agent(attr) => agents.push(attr),
-            AttrInfo::Have(attr) => haves.push(attr),
-            AttrInfo::Ensure(attr) => ensures.push(attr),
-            AttrInfo::Forget(attr) => forgets.push(attr),
-        });
+            .filter_map(|attr| self.collect_attr(attr))
+            .collect();
 
-        // let body_with_facts = borrowck_facts::get_body_with_borrowck_facts(self.tcx, def_id);
+        // collect the list of variable identifiers of interest
+        let variables: BTreeSet<_> = attrs
+            .iter()
+            .flat_map(|attr| -> Box<dyn Iterator<Item = _>> {
+                match attr {
+                    AttrInfo::Agent(_) => Box::new(iter::empty()),
+                    AttrInfo::Have(HaveMeta { form }) => Box::new(form.0.vocab()),
+                    AttrInfo::Ensure(EnsureMeta { form }) => Box::new(form.0.vocab()),
+                    AttrInfo::Forget(ForgetMeta {
+                        subject,
+                        dependencies,
+                    }) => Box::new(iter::once(subject).chain(dependencies).map(|var| &var.0)),
+                }
+            })
+            .map(|ident| ident.0.value.as_str())
+            .collect();
+
+        // find the location of the first instance of each variable.
+        let body_with_facts = borrowck_facts::get_body_with_borrowck_facts(self.tcx, self.def_id());
+        let body = &body_with_facts.body;
+
+        println!("{:#?}", body);
+
+        let place_map = body
+            .var_debug_info
+            .iter()
+            .filter_map(|VarDebugInfo { name, value, .. }| {
+                let name = name.as_str();
+                if !variables.contains(&name) {
+                    return None;
+                }
+
+                match value {
+                    VarDebugInfoContents::Place(place) => Some((name, place)),
+                    VarDebugInfoContents::Const(_) => None,
+                }
+            })
+            .unique_by(|(name, _)| *name)
+            .collect::<BTreeMap<_, _>>();
+
+        // for each location of interest, compute the forward dependencies in this body.
+        let flow_results =
+            flowistry::infoflow::compute_flow(self.tcx, self.body_id, body_with_facts);
+        for (ident, place) in place_map {
+            let targets = vec![vec![(
+                *place,
+                LocationOrArg::from_place(*place, body).unwrap(),
+            )]];
+
+            let deps = flowistry::infoflow::compute_dependencies(
+                &flow_results,
+                targets.clone(),
+                Direction::Forward,
+            )
+            .remove(0);
+
+            println!("{:#?}", deps);
+
+            println!("The forward dependencies of targets {targets:?} are:");
+            let body = &body_with_facts.body;
+            let spanner = Spanner::new(self.tcx, self.body_id, body);
+            let source_map = self.tcx.sess.source_map();
+            for location in deps.iter() {
+                let spans = Span::merge_overlaps(spanner.location_to_spans(
+                    *location,
+                    body,
+                    EnclosingHirSpans::OuterOnly,
+                ));
+                println!("Location {location:?}:");
+                for span in spans {
+                    println!("{}", source_map.span_to_snippet(span).unwrap(),);
+                }
+            }
+        }
+
+        todo!();
+
+        let agents = Vec::new();
+        let haves = Vec::new();
+        let ensures = Vec::new();
+        let forgets = Vec::new();
+
         meta::Function {
             agents,
             haves,

@@ -31,7 +31,7 @@ impl ItemAttribute for Attribute {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Meta {
-    names: Vec<Agent>,
+    pub names: Vec<Agent>,
 }
 
 impl Meta {
