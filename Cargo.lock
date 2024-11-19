@@ -327,10 +327,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hermit-markers"
-version = "0.1.0"
-
-[[package]]
 name = "hermit-plugin"
 version = "0.1.0"
 dependencies = [
