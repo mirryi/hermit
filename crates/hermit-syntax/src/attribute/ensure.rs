@@ -6,10 +6,10 @@ use syn::{
     ItemFn,
 };
 
-use crate::user::ItemAttribute;
+use crate::lang::Form;
 use crate::TOOL;
 
-use super::form::Form;
+use super::ItemAttribute;
 
 pub struct Attribute;
 

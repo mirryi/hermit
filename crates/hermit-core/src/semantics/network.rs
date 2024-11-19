@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use epistemic::{Form, KnowStruct, Semantics};
+use super::flow::{Flow, Transitive};
 
-use crate::flow::{Flow, Transitive};
+pub use epistemic::{Form, KnowStruct, Semantics};
 
 /// A group of agents.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]

@@ -1,4 +1,4 @@
-use hermit_core::Form;
+use hermit_core::UntypedForm;
 
 #[derive(Debug, Clone)]
 pub struct Location {}
@@ -10,17 +10,17 @@ pub struct Agent {
 
 #[derive(Debug, Clone)]
 pub struct Have {
-    pub form: Form<Agent, Location>,
+    pub form: UntypedForm<Agent, Location>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Ensure {
-    pub form: Form<Agent, Location>,
+    pub form: UntypedForm<Agent, Location>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Forgets {
-    pub form: Form<Agent, Location>,
+    pub form: UntypedForm<Agent, Location>,
 }
 
 #[derive(Debug, Clone)]

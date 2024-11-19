@@ -98,7 +98,7 @@ impl<'p, A, P> From<&'p Form<A, P>> for Form<&'p A, &'p P> {
                 Form::Equiv(Box::new(p1.as_ref().into()), Box::new(p2.as_ref().into()))
             }
             Form::Forall(xs, p) => Form::Forall(xs.iter().collect(), Box::new(p.as_ref().into())),
-            Form::Exist(xs, p) => Form::Forall(xs.iter().collect(), Box::new(p.as_ref().into())),
+            Form::Exist(xs, p) => Form::Exist(xs.iter().collect(), Box::new(p.as_ref().into())),
             Form::K(ag, p) => Form::K(ag, Box::new(p.as_ref().into())),
             Form::CK(ags, p) => Form::CK(ags.iter().collect(), Box::new(p.as_ref().into())),
             Form::DK(ags, p) => Form::DK(ags.iter().collect(), Box::new(p.as_ref().into())),

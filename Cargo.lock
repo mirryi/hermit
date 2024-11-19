@@ -310,20 +310,7 @@ dependencies = [
 name = "hermit-attributes"
 version = "0.1.0"
 dependencies = [
- "hermit-attributes-lib",
-]
-
-[[package]]
-name = "hermit-attributes-lib"
-version = "0.1.0"
-dependencies = [
- "epistemic",
- "paste",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
+ "hermit-syntax",
 ]
 
 [[package]]
@@ -332,8 +319,11 @@ version = "0.1.0"
 dependencies = [
  "epistemic",
  "epistemic-smcdel",
- "flowistry",
+ "immutable-list",
+ "iter-unique-ord",
  "maplit",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -346,11 +336,25 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "flowistry",
- "hermit-attributes-lib",
  "hermit-core",
+ "hermit-syntax",
  "rustc_plugin",
  "rustc_utils",
  "serde",
+]
+
+[[package]]
+name = "hermit-syntax"
+version = "0.1.0"
+dependencies = [
+ "epistemic",
+ "hermit-core",
+ "paste",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
 ]
 
 [[package]]
@@ -361,6 +365,10 @@ checksum = "e3d1354bf6b7235cb4a0576c2619fd4ed18183f689b12b006a0ee7329eeff9a5"
 dependencies = [
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "immutable-list"
+version = "0.1.0"
 
 [[package]]
 name = "index_vec"
@@ -409,6 +417,10 @@ name = "iter-tree"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4435b25a8ad55bfd3fc0a6ed6b6a613a347dc037c48513dd724fa063035efe9"
+
+[[package]]
+name = "iter-unique-ord"
+version = "0.1.0"
 
 [[package]]
 name = "itertools"

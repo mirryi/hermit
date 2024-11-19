@@ -7,10 +7,10 @@ use syn::{
     ItemFn, Token,
 };
 
-use crate::user::ItemAttribute;
+use crate::lang::Variable;
 use crate::TOOL;
 
-use super::form::Variable;
+use super::ItemAttribute;
 
 pub struct Attribute;
 
@@ -39,10 +39,8 @@ impl Parse for Args {
         // (ex:) bar: foo, boo
         let subject = input.parse()?;
         let _ = input.parse::<Token![:]>()?;
-        let dependencies = Punctuated::<Ident, Token![,]>::parse_separated_nonempty(input)?
-            .iter()
-            .map(Ident::to_string)
-            .map(Variable)
+        let dependencies = Punctuated::<Variable, Token![,]>::parse_separated_nonempty(input)?
+            .into_iter()
             .collect();
 
         Ok(Self {

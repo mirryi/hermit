@@ -4,7 +4,7 @@
 use hermit::*;
 
 #[agent(secret)]
-#[ensure(forall a: !K[a: pwd])]
+#[ensure(agents a: !K[a: pwd])]
 pub fn register(username: String, pwd: String) {
     db::store(username, pwd)
 }

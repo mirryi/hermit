@@ -7,4 +7,4 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-hermit-attributes-lib = { path = "../hermit-attributes-lib" }
+hermit-syntax = { path = "../hermit-syntax" }

@@ -11,6 +11,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "epistemic-smcdel"
+version = "0.1.0"
+dependencies = [
+ "epistemic",
+]
+
+[[package]]
 name = "hermit"
 version = "0.1.0"
 dependencies = [
@@ -21,14 +28,27 @@ dependencies = [
 name = "hermit-attributes"
 version = "0.1.0"
 dependencies = [
- "hermit-attributes-lib",
+ "hermit-syntax",
 ]
 
 [[package]]
-name = "hermit-attributes-lib"
+name = "hermit-core"
 version = "0.1.0"
 dependencies = [
  "epistemic",
+ "epistemic-smcdel",
+ "immutable-list",
+ "iter-unique-ord",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "hermit-syntax"
+version = "0.1.0"
+dependencies = [
+ "epistemic",
+ "hermit-core",
  "paste",
  "proc-macro2",
  "quote",
@@ -38,10 +58,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "immutable-list"
+version = "0.1.0"
+
+[[package]]
 name = "iter-tree"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4435b25a8ad55bfd3fc0a6ed6b6a613a347dc037c48513dd724fa063035efe9"
+
+[[package]]
+name = "iter-unique-ord"
+version = "0.1.0"
 
 [[package]]
 name = "itoa"
@@ -140,6 +168,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

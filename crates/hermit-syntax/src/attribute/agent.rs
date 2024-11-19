@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
 use serde::{Deserialize, Serialize};
 use syn::{
@@ -7,10 +7,10 @@ use syn::{
     ItemFn, Token,
 };
 
-use crate::user::ItemAttribute;
+use crate::lang::Agent;
 use crate::TOOL;
 
-use super::form::Agent;
+use super::ItemAttribute;
 
 pub struct Attribute;
 
@@ -36,10 +36,8 @@ pub struct Args {
 impl Parse for Args {
     fn parse(input: ParseStream) -> Result<Self> {
         // parse list of agent names as comma-separated identifiers.
-        let names = Punctuated::<Ident, Token![,]>::parse_separated_nonempty(input)?
-            .iter()
-            .map(Ident::to_string)
-            .map(Agent)
+        let names = Punctuated::<Agent, Token![,]>::parse_separated_nonempty(input)?
+            .into_iter()
             .collect();
         Ok(Self { names })
     }

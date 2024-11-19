@@ -4,10 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-flowistry = "0.5.42"
+thiserror = "2.0"
 
 epistemic = { path = "../epistemic" }
 epistemic-smcdel = { path = "../epistemic-smcdel" }
+immutable-list = { path = "../immutable-list" }
+iter-unique-ord = { path = "../iter-unique-ord" }
+
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 [dev-dependencies]
 maplit = "1.0"
+
+[features]
+serde = ["dep:serde"]

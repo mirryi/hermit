@@ -1,4 +1,4 @@
-use hermit_attributes_lib::user::{agent, ensure, forget, have, ItemAttribute};
+use hermit_syntax::attribute::{agent, ensure, forget, have, ItemAttribute};
 
 macro_rules! attribute {
     ($name:ident) => {
