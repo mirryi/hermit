@@ -1,27 +1,9 @@
-use hermit_core::UntypedForm;
+pub use hermit_syntax::attribute::{
+    AgentMeta as Agent, EnsureMeta as Ensure, ForgetMeta as Forget, HaveMeta as Have,
+};
 
 #[derive(Debug, Clone)]
 pub struct Location {}
-
-#[derive(Debug, Clone)]
-pub struct Agent {
-    pub name: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct Have {
-    pub form: UntypedForm<Agent, Location>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Ensure {
-    pub form: UntypedForm<Agent, Location>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Forgets {
-    pub form: UntypedForm<Agent, Location>,
-}
 
 #[derive(Debug, Clone)]
 pub struct FunctionName {}
@@ -37,7 +19,7 @@ pub struct Function {
     pub agents: Vec<Agent>,
     pub haves: Vec<Have>,
     pub ensures: Vec<Ensure>,
-    pub forgets: Vec<Forgets>,
+    pub forgets: Vec<Forget>,
 
     pub calls: Vec<Call>,
 }

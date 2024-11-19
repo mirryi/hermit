@@ -1,6 +1,11 @@
-use rustc_ast::{AttrKind, Attribute};
+use rustc_ast::{
+    token::{Lit, LitKind, Token, TokenKind},
+    tokenstream::TokenTree,
+    AttrKind, Attribute,
+};
 use rustc_borrowck::consumers::BodyWithBorrowckFacts;
 use rustc_hir::{BodyId, ItemKind};
+use rustc_lexer::unescape;
 use rustc_middle::{
     hir::map::Map as HirMap,
     mir::{Local, Place},
@@ -14,8 +19,12 @@ use rustc_utils::{
 };
 
 use flowistry::infoflow::Direction;
+use hermit_syntax::{
+    attribute::{AgentMeta, Decode, EnsureMeta, ForgetMeta, HaveMeta},
+    TOOL,
+};
 
-use crate::{info, plugin::TOOL};
+use crate::meta;
 
 pub struct Collector<'tcx> {
     tcx: TyCtxt<'tcx>,
@@ -26,7 +35,7 @@ impl<'tcx> Collector<'tcx> {
         Self { tcx }
     }
 
-    pub fn collect(&self) -> info::Info {
+    pub fn collect(&self) -> meta::Info {
         let hir = self.tcx.hir();
         let fns = hir
             .items()
@@ -38,7 +47,7 @@ impl<'tcx> Collector<'tcx> {
             .map(|fnc| fnc.collect())
             .collect();
 
-        info::Info { fns }
+        meta::Info { fns }
     }
 }
 
@@ -48,10 +57,10 @@ struct FnCollector<'tcx> {
 }
 
 enum AttrInfo {
-    Agent(info::Agent),
-    Have(info::Have),
-    Ensure(info::Ensure),
-    Forgets(info::Forgets),
+    Agent(meta::Agent),
+    Have(meta::Have),
+    Ensure(meta::Ensure),
+    Forget(meta::Forget),
 }
 
 impl<'tcx> FnCollector<'tcx> {
@@ -71,7 +80,7 @@ impl<'tcx> FnCollector<'tcx> {
         self.tcx.get_attrs_unchecked(self.def_id().into())
     }
 
-    fn collect(&self) -> info::Function {
+    fn collect(&self) -> meta::Function {
         // collect the attributes.
         let mut agents = Vec::new();
         let mut haves = Vec::new();
@@ -85,11 +94,11 @@ impl<'tcx> FnCollector<'tcx> {
             AttrInfo::Agent(attr) => agents.push(attr),
             AttrInfo::Have(attr) => haves.push(attr),
             AttrInfo::Ensure(attr) => ensures.push(attr),
-            AttrInfo::Forgets(attr) => forgets.push(attr),
+            AttrInfo::Forget(attr) => forgets.push(attr),
         });
 
         // let body_with_facts = borrowck_facts::get_body_with_borrowck_facts(self.tcx, def_id);
-        info::Function {
+        meta::Function {
             agents,
             haves,
             ensures,
@@ -105,11 +114,64 @@ impl<'tcx> FnCollector<'tcx> {
         };
 
         let segments = &normal.item.path.segments;
-        if segments.get(0)?.ident.as_str() != TOOL {
+        let tool = segments.first()?.ident.as_str();
+        let kind = segments.get(1)?.ident.as_str();
+        let none = segments.get(2);
+        if !(tool == TOOL.name() && none.is_none()) {
             return None;
         }
 
-        todo!()
+        // extract the string argument.
+        let mut args = normal.item.args.inner_tokens().into_trees();
+        let arg = match args.next_ref().unwrap() {
+            TokenTree::Token(
+                Token {
+                    kind:
+                        TokenKind::Literal(Lit {
+                            kind: LitKind::Str,
+                            symbol,
+                            suffix: _,
+                        }),
+                    span: _,
+                },
+                _,
+            ) => {
+                let mut buf = String::new();
+                unescape::unescape_literal(symbol.as_str(), unescape::Mode::Str, &mut |_, c| {
+                    buf.push(c.unwrap())
+                });
+                buf
+            }
+            _ => panic!(),
+        };
+
+        if kind == AgentMeta::KIND {
+            Some(self.collect_agent_attr(&arg))
+        } else if kind == HaveMeta::KIND {
+            Some(self.collect_have_attr(&arg))
+        } else if kind == EnsureMeta::KIND {
+            Some(self.collect_ensure_attr(&arg))
+        } else if kind == ForgetMeta::KIND {
+            Some(self.collect_forget_attr(&arg))
+        } else {
+            panic!()
+        }
+    }
+
+    fn collect_agent_attr(&self, arg: &str) -> AttrInfo {
+        AttrInfo::Agent(AgentMeta::decode(arg))
+    }
+
+    fn collect_have_attr(&self, arg: &str) -> AttrInfo {
+        AttrInfo::Have(HaveMeta::decode(arg))
+    }
+
+    fn collect_ensure_attr(&self, arg: &str) -> AttrInfo {
+        AttrInfo::Ensure(EnsureMeta::decode(arg))
+    }
+
+    fn collect_forget_attr(&self, arg: &str) -> AttrInfo {
+        AttrInfo::Forget(ForgetMeta::decode(arg))
     }
 }
 

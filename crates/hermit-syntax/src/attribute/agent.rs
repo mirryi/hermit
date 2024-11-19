@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use serde::{Deserialize, Serialize};
 use syn::{
@@ -10,30 +10,35 @@ use syn::{
 use crate::lang::Agent;
 use crate::TOOL;
 
-use super::ItemAttribute;
+use super::{Encode, ItemAttribute};
 
 pub struct Attribute;
 
 impl ItemAttribute for Attribute {
-    type Args = Args;
+    type Args = Meta;
 
     fn impl_fn(&self, args: Self::Args, item: ItemFn) -> TokenStream {
         let tool = TOOL.ident();
-        let args = serde_json::to_string(&args).unwrap();
+        let kind = Ident::new(Meta::KIND, Span::call_site());
+        let args = args.encode();
 
         quote! {
-            #[#tool::agent(#args)]
+            #[#tool::#kind(#args)]
             #item
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Args {
+pub struct Meta {
     names: Vec<Agent>,
 }
 
-impl Parse for Args {
+impl Meta {
+    pub const KIND: &'static str = "agent";
+}
+
+impl Parse for Meta {
     fn parse(input: ParseStream) -> Result<Self> {
         // parse list of agent names as comma-separated identifiers.
         let names = Punctuated::<Agent, Token![,]>::parse_separated_nonempty(input)?

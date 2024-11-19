@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use serde::{Deserialize, Serialize};
 use syn::{
@@ -10,31 +10,36 @@ use syn::{
 use crate::lang::Variable;
 use crate::TOOL;
 
-use super::ItemAttribute;
+use super::{Encode, ItemAttribute};
 
 pub struct Attribute;
 
 impl ItemAttribute for Attribute {
-    type Args = Args;
+    type Args = Meta;
 
     fn impl_fn(&self, args: Self::Args, item: ItemFn) -> TokenStream {
         let tool = TOOL.ident();
-        let args = serde_json::to_string(&args).unwrap();
+        let kind = Ident::new(Meta::KIND, Span::call_site());
+        let args = args.encode();
 
         quote! {
-            #[#tool::forget(#args)]
+            #[#tool::#kind(#args)]
             #item
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Args {
+pub struct Meta {
     subject: Variable,
     dependencies: Vec<Variable>,
 }
 
-impl Parse for Args {
+impl Meta {
+    pub const KIND: &'static str = "forget";
+}
+
+impl Parse for Meta {
     fn parse(input: ParseStream) -> Result<Self> {
         // (ex:) bar: foo, boo
         let subject = input.parse()?;

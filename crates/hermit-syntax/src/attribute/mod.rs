@@ -5,6 +5,7 @@ pub mod have;
 
 use paste::paste;
 use proc_macro2::TokenStream;
+use serde::{Deserialize, Serialize};
 use syn::parse::Parse;
 use syn::Item;
 
@@ -99,3 +100,34 @@ pub trait ItemAttribute {
         unimplemented!()
     }
 }
+
+pub trait Encode {
+    fn encode(self) -> String;
+}
+
+pub trait Decode {
+    fn decode(s: &str) -> Self;
+}
+
+impl<T> Encode for T
+where
+    T: Serialize,
+{
+    fn encode(self) -> String {
+        serde_json::to_string(&self).unwrap()
+    }
+}
+
+impl<T> Decode for T
+where
+    T: for<'de> Deserialize<'de>,
+{
+    fn decode(s: &str) -> Self {
+        serde_json::from_str(s).unwrap()
+    }
+}
+
+pub use agent::Meta as AgentMeta;
+pub use ensure::Meta as EnsureMeta;
+pub use forget::Meta as ForgetMeta;
+pub use have::Meta as HaveMeta;

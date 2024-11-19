@@ -9,8 +9,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::collect::Collector;
 
-pub const TOOL: &'static str = "hermittool";
-
 pub struct HermitPlugin;
 
 #[derive(Debug, Parser, Serialize, Deserialize)]

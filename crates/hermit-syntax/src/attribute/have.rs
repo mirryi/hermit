@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use serde::{Deserialize, Serialize};
 use syn::{
@@ -9,30 +9,35 @@ use syn::{
 use crate::lang::Form;
 use crate::TOOL;
 
-use super::ItemAttribute;
+use super::{Encode, ItemAttribute};
 
 pub struct Attribute;
 
 impl ItemAttribute for Attribute {
-    type Args = Args;
+    type Args = Meta;
 
     fn impl_fn(&self, args: Self::Args, item: ItemFn) -> TokenStream {
         let tool = TOOL.ident();
-        let args = serde_json::to_string(&args).unwrap();
+        let kind = Ident::new(Meta::KIND, Span::call_site());
+        let args = args.encode();
 
         quote! {
-            #[#tool::have(#args)]
+            #[#tool::#kind(#args)]
             #item
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Args {
+pub struct Meta {
     form: Form,
 }
 
-impl Parse for Args {
+impl Meta {
+    pub const KIND: &'static str = "have";
+}
+
+impl Parse for Meta {
     fn parse(input: ParseStream) -> Result<Self> {
         let form = input.parse()?;
         Ok(Self { form })
