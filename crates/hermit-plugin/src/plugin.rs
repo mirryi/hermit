@@ -7,7 +7,7 @@ use rustc_plugin::{CrateFilter, RustcPlugin, RustcPluginArgs, Utf8Path};
 use rustc_utils::mir::borrowck_facts;
 use serde::{Deserialize, Serialize};
 
-use crate::collect::Collector;
+use crate::analyse;
 
 pub struct HermitPlugin;
 
@@ -78,10 +78,10 @@ impl rustc_driver::Callbacks for HermitCallbacks {
         _compiler: &rustc_interface::interface::Compiler,
         queries: &'tcx rustc_interface::Queries<'tcx>,
     ) -> rustc_driver::Compilation {
-        queries.global_ctxt().unwrap().enter(|tcx| {
-            let coll = Collector::new(tcx);
-            let info = coll.collect();
-        });
+        queries
+            .global_ctxt()
+            .unwrap()
+            .enter(|tcx| analyse::analyse(tcx));
 
         rustc_driver::Compilation::Stop
     }

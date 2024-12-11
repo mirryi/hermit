@@ -6,6 +6,7 @@ use hermit::*;
 #[agent(secret)]
 #[ensure(agents a: !K[a: pwd])]
 pub fn register(username: String, pwd: String) {
+    let pwd = hash(pwd);
     db::store(username, pwd)
 }
 

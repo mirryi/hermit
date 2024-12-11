@@ -127,6 +127,8 @@ where
     }
 }
 
+pub use crate::lang::{Agent, Form, Ident};
+
 pub use agent::Meta as AgentMeta;
 pub use ensure::Meta as EnsureMeta;
 pub use forget::Meta as ForgetMeta;
