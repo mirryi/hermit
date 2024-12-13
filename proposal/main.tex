@@ -7,6 +7,9 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{mathtools}
+\usepackage{bm}
+
+\usepackage{xspace}
 
 \usepackage{xurl}
 \urlstyle{same}
@@ -33,14 +36,17 @@
 
 \newcommand{\mlstinline}[1]{\ensuremath{\text{\lstinline{#1}}}}
 
-\newcommand{\Hermit}{\textsc{Hermit}}
+\newcommand{\Hermit}{\textsc{Hermit}\xspace}
 
 \begin{document}
 \ActivateVerbatimLigatures
 
 \date{}
 
-\title{\Large \bf Hermit: Static Information Flow Control for Rust via Dynamic Epistemic Logic}
+\title{\Large \bf
+  Static Information Flow Control for Rust \\
+    via Dynamic Epistemic Logic
+}
 
 \author{
   {\rm Eric Zhao} \\
@@ -49,267 +55,345 @@
 
 \maketitle
 
+\begin{abstract}
+Epistemic logics, which present formal systems for reasoning about knowledge, provide an intuitive framework to describe policies of privacy and security.
+In this work, we explore a novel application of classical dynamic epistemic logics to language-level information flow control by recasting notions of information flow as dynamic announcements.
+We implement and evaluate these ideas in the \Hermit, a static analysis tool for the Rust programming language.
+\end{abstract}
+
 \section{Introduction}
 
-Epistemic (from the Greek \emph{epistēmē}, ``knowledge'') logics present formal systems for reasoning about knowledge,
-belief, and related notions. Whilst of intense philosophical interest, these logics have also been
-the subject of significant practical interest in computer science and other fields, especially in
-artificial intelligence and multi-agent systems. We suggest that they also provide an intuitive
-framework for reasoning about notions of privacy and security: policies in this realm are often
-concerned with \emph{who} may or must \emph{know} some information.
+Epistemic (from the Greek \emph{epistēmē}, ``knowledge'') logics present formal systems for reasoning about knowledge, belief, and related notions.
+Whilst of intense philosophical interest, these logics have also been the subject of significant practical interest in computer science and other fields, especially in artificial intelligence and multi-agent systems.
+They also provide an intuitive framework for reasoning about notions of privacy and security:
+policies in this realm are often concerned with \emph{who} may or must \emph{know} some information.
 
-This is, unsurprisingly, not a novel observation, and there has been plenty of investigation in
-security applications of epistemic logic \cite{aucher_2011a, dechesne_2010a, balliu_2011a,
-koleini_2013a, soloviev_2024a}. In this work, we employ \emph{dynamic epistemic logic} in
-language-level information flow control. The result is \Hermit{}, a library for \emph{static}
-information flow control in the Rust programming language.
+This perspective is not without investigation; there is a modest body of literature in security-related applications of epistemic logic \cite{aucher_2011a, dechesne_2010a, koleini_2013a, soloviev_2024a}.
+Prior work \cite{balliu_2011a} has explored information flow control via \emph{linear temporal epistemic logic} by reasoning over program traces and outputs.
 
-\section{Dynamic Epistemic Logic}
-\label{sec:background-del}
+In this work, we employ \emph{dynamic epistemic logic} in a language-level information flow control framework.
+This is enabled by understanding the flow of information across code boundaries as \emph{announcement} in dynamic epistemic logic; the information flows of a program are translated into logical formulae checked by an off-the-shelf model checker.
+We implement these ideas in the \Hermit, a information flow control tool for the Rust programming language.
 
-Epistemic logics are most commonly modal logics, extending propositional logic with modal operators
-for \emph{knowledge} (\(K\)) and \emph{belief} (\(B\)), corresponding to modalities \(\square\)
-(``necessity'') and \(\diamondsuit\) (``possibility''). Here, we are only concerned with the former,
-and knowledge is always established relative to some \emph{agent} \(a\) (e.g. a person): given some
-proposition \(\phi\), \(K_a \phi\) reads that ``the agent \(a\) knows \(\phi\)''. The basic syntax
-of first-order epistemic logic for propositional atoms \(p\) is given in \cref{fig:epistemic-logic}.
-Disjunction, implication, bi-implication, and other familiar connectives may be defined from
-negation and conjunction in the usual manner.
+The remainder of this report discusses the \Hermit and its implementation.
+\cref{sec:background} reviews the flavour of dynamic epistemic logics under consideration.
+\cref{sec:design} covers the design and usage of the \Hermit.
+Finally, we close with a brief discussion of the ongoing implementation (\cref{sec:implementation}) and an evaluation plan (\cref{sec:evaluation}).
 
+\section{Background}
+\label{sec:background}
+
+\subsection{Epistemic logics}
+\label{sec:background-el}
+
+Epistemic logics are most commonly classical modal logics, extending classical propositional logic with modal operators for \emph{knowledge} (\(K\)) and \emph{belief} (\(B\)), corresponding to the modalities \(\square\) (``necessity'') and \(\diamondsuit\) (``possibility'').
+Here, we are only concerned with the former, and knowledge is always established relative to some \emph{agent} \(a\) (e.g.\ a person):
+given some logical proposition \(\phi\), \(K_a \phi\) reads that ``the agent \(a\) knows \(\phi\)''.
+The basic syntax of first-order epistemic logic for propositional atoms \(p\) is given in \cref{fig:background-el}.
+Disjunction (\(\phi \lor \psi\)), implication (\(\phi \to \psi\)), bi-implication (\(\phi \leftrightarrow \psi\)), and other familiar connectives may be defined from negation and conjunction in the usual manner.
+
+\newcommand{\syntaxLabel}[1]{\ensuremath{\text{\small\color{black!60} (#1)}}}
 \begin{figure}[ht]
   \centering
-  \[\begin{array}{rcl}
+  \[\begin{array}{rcll}
     \phi, \psi & \Coloneqq &
+      \top \mid
+      \bot \mid
       p \mid
       \lnot \phi \mid
-      \phi \land \phi \mid
-      K_a \phi \mid
+      \phi \land \psi \mid
       \forall x. \phi \mid
-      \exists x. \phi
+      \exists x. \phi \\
+    &   & \syntaxLabel{classical propositional logic} \\
+    & \mid &
+      K_a \phi \mid
+      C_G \phi \mid
+      D_G \phi \\
+    &   & \syntaxLabel{\ldots with epistemic modalities} \\
+    & \mid &
+      [\phi!] \psi \mid
+      [\phi!]_G \psi
+      \\
+    &   & \syntaxLabel{\ldots with announcements} \\
   \end{array}\]
   \caption{Syntax of epistemic logic.}
-  \label{fig:epistemic-logic}
+  \label{fig:background-el}
 \end{figure}
 
-Flavors of \emph{dynamic} epistemic logic additionally includes \emph{actions} that cause the
-knowledge of agents to change. Concretely, an agent may \emph{announce} \(\phi\) to another agent
-\(a\), written \([!\phi]_{a}\). We write \([!\phi]_{a} \psi\) to denote that after \(\phi\) is
-announced to agent \(a\), \(\psi\) is true. For example, if Cheryl knows that Alice is exactly two
-years older than Bob but knows neither person's age, and Alice informs Cheryl that she is 25 years
-old, then Cheryl knows that Bob is 23 years old.
+\paragraph{Group knowledge}
+It is useful to extend the core epistemic logic with additional operators describing variants of \emph{group} knowledge.
+Given some group of agents \(G \subseteq A\), where \(A\) denotes the set of \emph{all} agents, \(C_G \phi\) means that there is \emph{common knowledge} of \(\phi\) amongst members of the group:
+they all know \(\phi\), and they all know that they know \(\phi\), and so on \emph{ad infinitum}.
 
-We now have an expressive logical system that can intuitively describe a wide variety of privacy and
-security policies. For example, consider a web server (\(s\)) that may send messages to some
-recipient (\(r\)) but must not send some data (\(\alpha\)). We may formulate \(\lnot K_r \alpha\) to
-state that \(r\) does not come to know \(\alpha\).
+Similarly, \(D_G \phi\) denotes \emph{distributed knowledge} of \(\phi\):
+an agent who knows all of what each group members knows would know \(\phi\).
+Equivalently, one may imagine all members of the group pooling their knowledge with one another---then they would know \(\phi\).
 
-We can also describe more complex policies. Suppose that an online service (\(s\)) must give a user
-(\(u\)) their data (\(\alpha\)) if a request for it is made (\(y\)). We can describe this policy by
-the implication \(K_s y \to K_u \alpha\). For a different user (\(u'\)), it should be that \(\lnot
-K_{u'} \alpha\); of course, the announcement of \(\alpha\) to \(u'\) would be in violation of the
-policy, as \([!\alpha]_{u'} K_{u'} \alpha\) is valid. If the data consists of only \(\beta\) and
-\(\gamma\), that is, \(\alpha \leftrightarrow \beta \land \gamma\), another user may be permitted to
-know one piece but not the other. Indeed, \(\lnot K_{u'} \alpha\) implies \(\lnot (K_{u'} \beta
-\land K_{u'} \gamma)\), or, equivalently, \(\lnot K_{u'} (\beta \land \gamma)\).
+\paragraph{Models}
+The semantics for epistemic logics are most commonly established in terms of \emph{pointed Kripke models} which describe the set of \emph{possible worlds}.
+Each world represents a reality in which some propositional atoms are true and others are false.
 
-In addition, we may describe \emph{public} and \emph{group} announcements, in which knowledge may be
-announced to \emph{all} agents \(I\) (written \([!\phi] \psi\)) or some restricted group of agents
-\(G \subseteq I\) (written \([!\phi]_G \psi\)), respectively. Group announcement may be seen as a
-generalization of both public and individual announcement. There are additional inference rules
-governing the distribution of the knowledge modality over universal and existential quantification
-and implication. For the sake of brevity, we omit the axioms of the system.
+\paragraph{Axioms of reasoning}
+It turns out that the use of pointed Kripke models gives rise to the reasoning principles:
+%
+\begin{align}
+  K_a (\phi \to \psi) &\to (K_a \phi \to K_a \psi) \label{eq:epistemic-k} \tag{K} \\
+  K_a \phi &\to \phi \tag{T} \label{eq:epistemic-t} \\
+  \phi &\to K_a (\lnot K_a \lnot \phi) \label{eq:epistemic-b} \tag{B} \\
+  K_a \phi &\to K_a K_a \phi \label{eq:epistemic-4} \tag{4}
+\end{align}
 
-In the rest of the proposal, we describe how this dynamic epistemic logic is adapted for
-fine-grained static information flow control via the \Hermit{} library.
+In short, \cref{eq:epistemic-k} states that knowledge is \emph{closed under implication}, and \cref{eq:epistemic-t} that knowledge is \emph{factual}.
+\cref{eq:epistemic-b} states that if \(\phi\) is true, the agent knows that it considers it possible.
+By \cref{eq:epistemic-4}, if the agent knows \(\phi\), it knows that it knows \(\phi\).
+There are additional inference rules governing the distribution of the knowledge modality over universal and existential quantification and implication, which we omit for the sake of brevity.
+This logic, which is an epistemic flavour of S5, forms the basis for this work.
+
+\paragraph{Security policies}
+We now have an expressive logical system that can intuitively describe a wide variety of privacy and security policies.
+For example, consider a web server (\(s\)) that may send messages to some recipient (\(r\)) but must not send some data (\(\alpha\)).
+\(\lnot K_r \alpha\) states that \(r\) does not come to know \(\alpha\).
+If the data consists of only \(\beta\) and \(\gamma\), that is, \(\alpha \leftrightarrow \beta \land \gamma\), the recipient may be permitted to know one piece but not the other.
+Indeed, \(\lnot K_{r} \alpha\) implies \(\lnot (K_{r} \beta \land K_{r} \gamma)\), or, equivalently, \(\lnot K_{r} (\beta \land \gamma)\).
+
+\subsection{Dynamic epistemic logics}
+\label{sec:background-del}
+
+Flavours of \emph{dynamic} epistemic logic augment with \emph{actions} that cause the knowledge of agents to change.
+Concretely, an agent may \emph{announce} some knowledge to the other agents.
+
+\paragraph{Public announcement}
+The most basic announcement operator \([\phi!]\) denotes a \emph{public announcement}, in which the truth of \(\phi\) is made known to all agents.
+Subsequently, all agents know \(\phi\), and they all know that they know \(\phi\);
+there is common knowledge amongst all agents of \(\phi\), i.e.\ \(C_A \phi\).
+We write \([\phi!] \psi\) to denote the proposition that after \(\phi\) is announced publicly, \(\psi\) is true.
+
+\paragraph{Group announcement}
+The generalization to the \emph{group announcement} \([\phi!]_G \psi\) allows the announcement of \(\phi\) to a semi-private group of agents \(G \subseteq A\).
+After the announcement, there is common knowledge amongst the group, i.e.\ \(C_G \phi\), whereas all other agents perceive no change.
+When \(G = A\), it is a public announcement; when \(G\) consists of a single agent, the announcement is \emph{private}.
+
+\paragraph{Security policies}
+Consider again the example in which the web server \(s\) may not send some data \(\alpha\) to a recipient \(r\), i.e.\ \(\lnot K_r \alpha\).
+Now, any group announcement involving the recipient is a violation of this policy, and indeed \(\lnot ([\alpha!]_G \lnot K_r \alpha)\) holds where \(r \in G\).
+However, an announcement to other users, may be permissible; in the absence of other policies, \([\alpha!]_G \lnot K_r \alpha\) holds where \(r \not\in G\).
 
 \section{The Hermit in Action}
+\label{sec:design}
 
-\cref{fig:example} demonstrates the \Hermit's design. In this example, the application registers a
-user by storing (\lstinline{store}) their username and password in some database. However, there is
-a critical policy security: the password \emph{must be hashed} (by calling the \lstinline{hash}
-function) before it is given to the database. Unfortunately, since the developer has forgotten to
-call \lstinline{hash} and \lstinline{pwd} is passed to \lstinline{store}, this policy is not
-respected.
+The \Hermit adapts dynamic epistemic logic for language-level static information flow control by mapping information flow into epistemic notions.
+In particular, the \Hermit understands the flow of data across specific code boundaries as the announcement of knowledge to specific agents.
 
-To enforce the desired security policy, the developer uses three library-provided attribute macros:
-\lstinline{agent}, \lstinline{ensure}, and \lstinline{forgets}.
+Consider the example in \cref{fig:design-example}, in which an application registers a user by storing (\lstinline{store}) their username and password in some database.
+However, there is a critical policy security: the password \emph{must be hashed} (by calling the \lstinline{hash} function) before it is given to the database.
+Unfortunately, since the developer has forgotten to call \lstinline{hash} and \lstinline{pwd} is passed to \lstinline{store}, this policy is not respected.
+
+\begin{figure}
+  \centering
+  \begin{tabular}{rcl}
+    function & \(\rightarrow\) & group of agents \\
+    data & \(\rightarrow\) & propositional atoms \\
+    call to function & \(\rightarrow\) & announcement to group \\
+  \end{tabular}
+  \caption{The \Hermit's mapping of concepts.}
+  \label{fig:design-concepts}
+\end{figure}
+
+To enforce the desired security policy, the \Hermit maps information flow into dynamic epistemic logical formulae.
+This is summarized in \cref{fig:design-concepts}.
+%
+\begin{itemize}
+  \item Each `part' of a program (e.g.\ function, module, or any other natural division) is attributed to a group of agents (\cref{sec:design-agents}).
+
+  \item \emph{Data} are propositional atoms, and policies in (non-dynamic) epistemic formulae describe constraints on agents' knowledge of the data (\cref{sec:design-policies}).
+
+  \item The flow of data across a division (e.g.\ call to a function) is considered an announcement of knowledge of the data (\cref{sec:design-enforcement}).
+\end{itemize}
+%
+Finally, there is need for a ``declassification'' mechanism (\cref{sec:design-disassociation}).
+The section concludes with a discussion of limitations (\cref{sec:design-limitations}).
 
 \begin{figure}
   \centering
   \begin{lstlisting}
-use hermit::{agent, ensure, forgets};
+use hermit::{agent, ensure, forget};
 
 fn store(username: String, pwd_hash: String) {
   ...
 }
 
 #[agent(secret)]
-#[forgets(unhashed)]
+#[forget(_: unhashed)]
 fn hash(unhashed: String) -> String {
   ...
 }
 
 #[agent(secret)]
-#[ensure(forall a, !a.K(pwd)]
-pub fn register(username: String) {
+#[ensure(agents a: !K[a: pwd]]
+fn register(username: String) {
   let pwd = ...
   store(username, pwd)
 }
   \end{lstlisting}
-  \caption{\Hermit{} in action.}
-  \label{fig:example}
+  \caption{The \Hermit in action.}
+  \label{fig:design-example}
 \end{figure}
 
-\paragraph{Declaring agents}
-Using \lstinline{agent}, the developer annotates the \lstinline{register} and \lstinline{hash}
-functions with the agent \lstinline{secret}. This means that the agent \lstinline{secret}
-\emph{knows} all the \emph{data} (including the those of the parameters) in these functions, and all
-the variables in these functions (including the parameters) belong to the agent \lstinline{secret}.
+\subsection{Declaring agents}
+\label{sec:design-agents}
 
-Notice that \lstinline{store} is \emph{not} annotated by \lstinline{agent}. \Hermit{} automatically
-assigns it to an anonymous default agent (we will call this agent \lstinline{db} for the purposes of
-explanation), and that agent knows all of the data in the function.
+Using \lstinline{agent}, the developer annotates the \lstinline{register} and \lstinline{hash} functions with the agent \lstinline{secret}.
+This means that the agent \lstinline{secret} \emph{knows} all the \emph{data} (including the those of the parameters) in these functions, and all the variables in these functions (including the parameters) belong to the agent \lstinline{secret}.
 
-Before continuing, it is important to distinguish between \emph{data} (the objects themselves) and
-\emph{variables} (which refer to data). A piece of data may be known by any number of agents, but
-each variable belongs to a single agent. This distinction is vital for the information flow
-analysis, which we describe later.
+Notice that \lstinline{store} is \emph{not} annotated by \lstinline{agent}.
+The \Hermit automatically assigns it to an anonymous default agent (we will call this agent \lstinline{db} for the purposes of explanation), and that agent knows all of the data in the function.
 
-\paragraph{Declaring policies}
-The developer then uses the \lstinline{ensure} attribute to declare the security policies of these
-functions; these are epistemic obligations. In this case, the policy is that the password does not
-leave this critical region, i.e. no agent but \lstinline{secret} knows the data of \lstinline{pwd}.
-This policy is formulated as a universal quantification over all (other) agents: for any (other)
-agent \lstinline{a}, it is not (\lstinline{!}) the case that agent \lstinline{a} comes to know the
-data of \lstinline{pwd} (\lstinline{a.K(pwd)}). Using the symbols of \cref{sec:background-del},
-\(\forall a, \lnot K_a \text{\lstinline{pwd}}\). In other words, code attached
-to the agent \lstinline{secret} is prohibited from causing the password to leak into the code
-attached to any other agent.
+Before continuing, it is important to distinguish between \emph{data} (the objects themselves) and \emph{variables} (which refer to data).
+A piece of data may be known by any number of agents, but each variable belongs to a single agent.
+This distinction is vital for the information flow analysis, which we describe later.
 
-In general, \lstinline{ensure} assertions may refer to any parameter or any variable bound in the body
-of the function. \lstinline{ensure} declarations may also appear on \lstinline{let} declarations or
-even data itself; one could instead write either of the following:
+\subsection{Declaring policies}
+\label{sec:design-policies}
 
-\begin{lstlisting}[firstnumber=16]
-#[ensure(forall a, !a.K(pwd)]
-let pwd = ...
-\end{lstlisting}
+The developer then uses the \lstinline{ensure} attribute to declare the security policies of these functions; these are epistemic obligations.
+In this case, the policy is that the password does not leave this critical region, i.e.\ no agent but \lstinline{secret} knows the data of \lstinline{pwd}.
+This policy is formulated as a universal quantification over all (other) agents:
+for any (other) agent \lstinline{a}, it is not (\lstinline{!}) the case that agent \lstinline{a} comes to know the data of \lstinline{pwd} (\lstinline{K[a: pwd]}).
+Using the symbols of \cref{fig:background-el}, \(\forall a, \lnot K_a \text{\lstinline{pwd}}\).
+In other words, code associated with the agent \lstinline{secret} is prohibited from causing the password to leak into the code attached to any other agent.
 
-\begin{lstlisting}[firstnumber=16]
-let pwd = #[ensure(pwd => forall a, !a.K(pwd)]
-          ...
-\end{lstlisting}
+In general, \lstinline{ensure} assertions may refer to any parameter or any variable bound in the body of the function.
 
-\paragraph{Enforcing policies}
-\Hermit{} statically enforces policies by (1) computing information flow and (2) checking that all
-\lstinline{ensure} assertions hold.
+\subsection{Enforcing policies}
+\label{sec:design-enforcement}
 
-In the first step, \Hermit{} computes the flow, i.e. the all the set of \emph{forward dependencies},
-for each piece of data with a \lstinline{ensure} annotation. In \cref{fig:example}, since
-\lstinline{pwd} is passed to \lstinline{store}, \lstinline{pwd_hash} is a forward dependency of the
-password.
+The \Hermit statically enforces policies by (1) computing information flow and (2) checking that all \lstinline{ensure} assertions hold.
+
+In the first step, the \Hermit computes the flow, i.e. the all the set of \emph{forward dependencies}, for each piece of data with a \lstinline{ensure} annotation.
+In \cref{fig:design-example}, since \lstinline{pwd} is passed to \lstinline{store}, \lstinline{pwd_hash} is a forward dependency of the password.
 
 Recall that each variable \lstinline{x} belongs to some agent \lstinline{a}.
-\Hermit{} views all movement and copying of data as the \emph{announcement} of that data to the
-corresponding agent of the variable. For example, when the data of \lstinline{pwd} is moved into
-\lstinline{pwd_hash}, \Hermit{} understands this operation as the announcement of the data to the
-agent \lstinline{db}! Hopefully it is clear that this announcement is in direct violation of the
-policy given by the \lstinline{ensure} policy once the announcement is made, the agent
-\lstinline{db} \emph{knows} the data of \lstinline{pwd}, but the policy states that no other agents
-are permitted to know the password. \Hermit{} is able to compute this violation and report an error.
+The \Hermit views all movement and copying of data as the \emph{announcement} of that data to the corresponding agent of the variable.
+For example, when the data of \lstinline{pwd} is moved into \lstinline{pwd_hash}, the \Hermit understands this operation as the announcement of the data to the agent \lstinline{db}!
+It should be clear that this announcement is in direct violation of the policy given by the \lstinline{ensure} policy once the announcement is made, the agent \lstinline{db} \emph{knows} the data of \lstinline{pwd}, but the policy states that no other agents are permitted to know the password.
+The \Hermit is able to compute this violation and report an error.
 
-Formally, let \(F(\mlstinline{pwd}) = \{\mlstinline{pwd_hash}\} \cup D\) be the forward dependencies
-of \lstinline{pwd}, where \(D\) is the forward dependencies of \lstinline{pwd_hash}. Suppose that
-the control flow of \lstinline{pwd_hash} is contained within \lstinline{store}, i.e. all members of
-\(D'\) (and thus \(F(\mlstinline{pwd})\)) are of agent \lstinline{db}.
+Formally, let \(F(\mlstinline{pwd}) = \{\mlstinline{pwd_hash}\} \cup D\) be the forward dependencies of \lstinline{pwd}, where \(D\) is the forward dependencies of \lstinline{pwd_hash}.
+Suppose that the control flow of \lstinline{pwd_hash} is contained within \lstinline{store}, i.e.\ all members of \(D'\) (and thus \(F(\mlstinline{pwd})\)) are of agent \lstinline{db}.
 
-Then, \Hermit{} computes the validity of
+Then, \Hermit computes the validity of
 \[%
-  [\mlstinline{pwd}]_\mlstinline{db} \forall a \in A^{*}(F(\mlstinline{pwd})), \lnot K_a \mlstinline{pwd}
+  [\mlstinline{pwd}!]_{\{\mlstinline{db}\}} \forall a \in A^{*}(F(\mlstinline{pwd})), \lnot K_a \mlstinline{pwd}
 \]%
-where \(A^{*}(D) = \{A(x) \mid x \in D\}\) and \(A(x)\) is the agent of the variable \(x\). Since
-\(A^{*}(F(\mlstinline{pwd})) = A^{*}(\{\mlstinline{pwd_hash}\} \cup D) =
-\{A(\mlstinline{pwd_hash})\} \cup A^{*}(D) = \{\mlstinline{db}\}\), we have, equivalently,
+where \(A^{*}(D) = \{A(x) \mid x \in D\}\) and \(A(x)\) is the agent of the variable \(x\).
+Since \(A^{*}(F(\mlstinline{pwd})) = A^{*}(\{\mlstinline{pwd_hash}\} \cup D) = \{A(\mlstinline{pwd_hash})\} \cup A^{*}(D) = \{\mlstinline{db}\}\), we have, equivalently,
 \[%
-  [\mlstinline{pwd}]_\mlstinline{db} \forall a \in \{\mlstinline{db}\}, \lnot K_a \mlstinline{pwd}
+  [\mlstinline{pwd}!]_{\{\mlstinline{db}\}} \forall a \in \{\mlstinline{db}\}, \lnot K_a \mlstinline{pwd}
     =
-  [\mlstinline{pwd}]_\mlstinline{db} \bigwedge_{\{\mlstinline{db}\}} \lnot K_a \mlstinline{pwd}
+  [\mlstinline{pwd}!]_{\{\mlstinline{db}\}} \bigwedge_{\{\mlstinline{db}\}} \lnot K_a \mlstinline{pwd}
 \]%
-The resulting statement is clearly invalid:
+The resulting statement is invalid:
 \[%
-  [\mlstinline{pwd}]_\mlstinline{db} \lnot K_\mlstinline{db} \mlstinline{pwd}
+  [\mlstinline{pwd}!]_{\{\mlstinline{db}\}} \lnot K_\mlstinline{db} \mlstinline{pwd}
 \]%
 
-\paragraph{Declassification}
-Let us now suppose that the developer correctly hashes the password using \lstinline{hash} before
-passing it to \lstinline{store}:
+\subsection{Disassociation}
+\label{sec:design-disassociation}
+
+Let us now suppose that the developer correctly hashes the password using \lstinline{hash} before passing it to \lstinline{store}:
 
 \begin{lstlisting}[firstnumber=16]
 let pwd = ...
 store(username, hash(pwd))
 \end{lstlisting}
 
-Now, the flow of the data of \lstinline{pwd} includes the parameter \lstinline{unhashed} and, by
-extension, any forward dependencies of \lstinline{unhashed}. Presumably, this includes the output of
-the function. Since moves and copies correspond to announcements, the data of \lstinline{pwd} is
-announced to the agent of \lstinline{unhashed} and other forward dependencies. Since
-\lstinline{unhashed} also belongs to the agent \lstinline{secret}, this is a no-op.
+Now, the flow of the data of \lstinline{pwd} includes the parameter \lstinline{unhashed} and, by extension, any forward dependencies of \lstinline{unhashed}.
+Presumably, this includes the output of the function.
+Since moves and copies correspond to announcements, the data of \lstinline{pwd} is announced to the agent of \lstinline{unhashed} and other forward dependencies.
+Since \lstinline{unhashed} also belongs to the agent \lstinline{secret}, this is a no-op.
 
-However, the output of \lstinline{hash(pwd)} is moved into the parameter \lstinline{pwd_hash} of
-\lstinline{store}, i.e. \Hermit{} considers the password to have been announced to the agent
-\lstinline{db}, again violating the policy! This is undesirable; we would like the \emph{hashed}
-password to enter the database.
+However, the output of \lstinline{hash(pwd)} is moved into the parameter \lstinline{pwd_hash} of \lstinline{store}, i.e.\ the \Hermit considers the password to have been announced to the agent \lstinline{db}, again violating the policy!
+This is undesirable; we would like the \emph{hashed} password to enter the database.
 
-\Hermit{} provides the \lstinline{forgets} attribute to allow the developer to declare that the
-output of \lstinline{hash} is \emph{independent} of the data of the parameter \lstinline{unhashed}.
-Consequently, the output is no longer considered a forward dependency of the data of
-\lstinline{unhashed}, and thus no longer a forward dependency of the data of \lstinline{pwd}. When
-the output is moved to \lstinline{store}, \Hermit{} considers it---but not the password---to have
-been announced to the agent \lstinline{db}. Now, the policy is satisfied. In effect, the output of
-\lstinline{hash} is declassified. In another view, agents to whom the output is announced know the
-output but ``forget'' that it has anything to do with the password in \lstinline{unhashed}.
+The \Hermit provides the \lstinline{forget} attribute to allow the developer to declare that the output of \lstinline{hash} is \emph{independent} of the data of the parameter \lstinline{unhashed}.
+Consequently, the output is no longer considered a forward dependency of the data of \lstinline{unhashed}, and thus no longer a forward dependency of the data of \lstinline{pwd}.
+When the output is moved to \lstinline{store}, the \Hermit considers it---but not the password---to have been announced to the agent \lstinline{db}.
+The policy is now satisfied.
+In effect, the output of \lstinline{hash} is declassified.
+In another view, agents to whom the output is announced know the output but ``forget'' that it has anything to do with the password in \lstinline{unhashed}.
 
-Needless to say, this attribute should probably be used sparingly and carefully. Luckily, \Hermit's
-design provides some safeguards against improper use. Specifically, where \lstinline{forgets} is
-used, the agent must already know the data. For instance, let us consider again the case
-\cref{fig:example}, in which the password is not hashed. The unhashed password cannot be known by
-the agent \lstinline{db} just by annotating \lstinline{store} with \lstinline{#[forgets(pwd_hash)]};
-\Hermit{} will still detect a violation of the policy at the call to \lstinline{store} on line 17.
-Of course, if \lstinline{store} is annotated with \lstinline{#[agent(secret)]}, all guarantees are
-abandoned (in much the same way that declaring items \lstinline{unsafe} forsakes memory safety
-guarantees).
+Needless to say, this attribute should probably be used sparingly and carefully.
+Luckily, the \Hermit's design provides some safeguards against improper use.
+Specifically, where \lstinline{forget} is used, the agent must already know the data.
+For instance, let us consider again the case \cref{fig:design-example}, in which the password is not hashed.
+The unhashed password cannot be known by the agent \lstinline{db} just by annotating \lstinline{store} with \lstinline{#[forget(pwd_hash)]}; the \Hermit will still detect a violation of the policy at the call to \lstinline{store} on line 17.
+Of course, if \lstinline{store} is annotated with \lstinline{#[agent(secret)]}, all guarantees are abandoned (in much the same way that declaring items \lstinline{unsafe} forsakes memory safety guarantees).
 
-The name \lstinline{forgets} is hopefully alarming enough to generate some caution. Further linting
-processes could ensure that only trusted developers may apply the \lstinline{forgets} annotation. As
-with the \lstinline{ensure} annotation, the \lstinline{forgets} annotation can also appear on
-individual bindings or data.
+The name \lstinline{forget} is hopefully alarming enough to generate some caution.
+Further linting processes could ensure that only trusted developers may apply the \lstinline{forget} annotation.
+
+\subsection{Limitations and discussion}
+\label{sec:design-limitations}
+
+\paragraph{Positive knowledge assertions}
+In the common case where information flow is \emph{over-approximated} (as is the case in our implementation, which uses Flowistry \cite{crichton_2022a}), it may be unsound to make \emph{positive} knowledge assertions, i.e.\ an \lstinline{ensure} assertion that some agent must know some data.
+The \Hermit{} may determine that an agent knows some data when this is not actually the case.
+
+For example, suppose that the developer wishes to ensure that agent \lstinline{usr} is served some legal text \lstinline{legal} with the annotation \lstinline{#[ensure(K[usr: legal])]}.
+If the forward dependencies of \lstinline{legal} are over-approximated---e.g.\ that it flows to a function \lstinline{show} belonging to \lstinline{usr} when it does not---then the \Hermit{} will compute an announcement of \lstinline{legal} to \lstinline{usr}.
+In this case, \([\mlstinline{legal}!]_{\{\mlstinline{usr}\}} K_{\mlstinline{usr}} \mlstinline{legal}\) holds,but the data does not flow to the user in reality.
+
+To prevent such unsound analysis, it is necessary to disallow such positive knowledge assertions.
+
+\paragraph{Compatibility with external libraries}
+In \cref{sec:design-agents}, functions without a \lstinline{agent} annotation were assigned a default, anonymous agent.
+As an unfortunate consequence, most external library functions (which are unannotated) belong to this default agent, disallowing them from use in the presence of assertions quantifying over all agents.
+This includes, for instance, the example in \cref{fig:design-example}, which implicitly employs standard library functions.
+This is an obviously untenable state of affairs.
+
+As a partial remedy, it may be sufficient to white-list functions in the standard library known to be pure, assigning them to some hidden \texttt{\footnotesize pure} agent that is excluded from all agent quantifications.
+Pre-defined agents such as \lstinline{network}, \lstinline{filesystem}, and so-on could be used for non-pure functions.
 
 \section{Implementation}
+\label{sec:implementation}
 
-\Hermit{} is implemented as a library of procedural macros for Rust. Internally, information flow is
-computed using the Flowistry library \cite{crichton_2022a}, and assertions are checked by
-dispatching SMCDEL \cite{gattinger_2018a}, a symbolic model checker for dynamic epistemic logic.
+The \Hermit is implemented as a compiler plugin for the Rust programming language.
+Internally, information flow is computed using the Flowistry library \cite{crichton_2022a} from the Rust compiler middle intermediate representation (MIR).
+The information flow graph is translated into a network of announcements, which is compiled into a system of logical assertions, as described in \cref{sec:design-enforcement}.
+These assertions are checked by dispatching over C-based FFI to SMCDEL \cite{gattinger_2018a}, a symbolic model checker for dynamic epistemic logic.
+
+To analyse the program in \cref{fig:design-example}, one can simply invoke the \Hermit{} in the crate's root directory via \lstinline{cargo hermit}.
+
+The \Hermit{} toolchain requires the Rust nightly toolchain for \lstinline{2024-01-06}.
+The implementation is (currently) approximately 3500 lines of Rust and Haskell.
+
+\paragraph{Unimplemented}
+The major outstanding items include: the translation of the Flowistry-provided information flow graph into a network of announcements, and the dispatch to SMCDEL.
+The implementation does not \emph{yet} reject positive knowledge assertions nor support external libraries.
 
 \section{Evaluation}
+\label{sec:evaluation}
 
-In such a system, we are firstly concerned with correctness, which depends primarily on the
-correctness of the Flowistry library \cite{crichton_2022a} and SMCDEL \cite{gattinger_2018a}.
-However, given resource constraints, we focus in this work on the usability of \Hermit{} itself by
-pursuing case studies of its application to existing systems.
+The correctness of the implementation of the \Hermit depends primarily on the correctness of the Flowistry library \cite{crichton_2022a}, SMCDEL \cite{gattinger_2018a}, and the translations performed by the tool.
+However, given resource constraints, we focus in this work on the usability of the \Hermit itself by pursuing case studies of its application to existing systems.
 
-We perform preliminary evaluation of \Hermit{}'s expressiveness and ease of use on WebSubmit
-\cite{schwarzkopf_2022a}, an existing web application for collecting student homework submissions.
-WebSubmit consists of approximately 1,000 lines of Rust code and uses the \cite{benitez_2024a} web
-framework. In this small case study, we attempt to address the following questions:
+Two key aspects are of major interest:
 
 \begin{itemize}
-  \item How flexible is \Hermit{} in expressing realistic information flow control policies? Are
+  \item How flexible is the \Hermit for expressing realistic information flow control policies? Are
     there policies that are difficult or cumbersome to express in dynamic epistemic logic? Are there
     policies for which dynamic epistemic logic is well-suited?
 
-  \item How much developer effort is required to apply \Hermit{}? We explore several different
+  \item How much developer effort is required to apply the \Hermit? We explore several different
     metrics, such as annotations-per-function or annotations-per-module.
 \end{itemize}
+
+To address these questions, we propose a preliminary evaluation on WebSubmit \cite{schwarzkopf_2022a}, an existing web application for collecting student homework submissions.
+WebSubmit consists of approximately 1,000 lines of Rust code and uses the Rocket web framework \cite{benitez_2024a}.
+
+\section{Conclusion}
+In this ongoing work, we presented a novel application of dynamic epistemic logic to language-level information flow control.
+The \Hermit treats the flow of data across code boundaries as announcements of knowledge; in effect, the information flow control problem is translated into a logical validity problem.
 
 \bibliographystyle{plain}
 \bibliography{main.bib}
