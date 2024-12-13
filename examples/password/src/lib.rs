@@ -3,13 +3,15 @@
 
 use hermit::*;
 
-pub fn foo(a: usize) {
-    let b = bar(a);
-    let c = b;
+#[agent(secret)]
+#[ensure(agents a: !K[a: pwd])]
+pub fn foo(pwd: usize) {
+    let pwd = hash(pwd);
+    let stored = pwd;
 }
 
-pub fn bar(a: usize) -> usize {
-    a
+pub fn hash(pwd: usize) -> usize {
+    pwd
 }
 
 // #[agent(secret)]

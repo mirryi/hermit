@@ -20,7 +20,7 @@ use itertools::Itertools;
 
 use crate::meta;
 
-use super::attr::{self, AttrCollector};
+use super::attr::{self, AttrCollector, AttrInfo};
 use super::localflow::{BodyFlow, DirectBodyFlow, FlowSet};
 
 pub struct FunCollector<'tcx> {
@@ -67,17 +67,23 @@ impl<'tcx> FunCollector<'tcx> {
         let locs = self.arg_and_these_locations(|name| attrs_vars.contains(name));
 
         // compute the forward dependencies for each location.
-        let flows = self.collect_flows(locs.into_iter().map(|(_, loc)| loc));
-
-        println!("{:?}", self.body_id);
-        println!("{:#?}", self.body());
-        println!("{:#?}", flows);
+        let flows = self.collect_flows(locs.iter().map(|(_, loc)| *loc));
 
         // process the attributes.
-        let agents = Vec::new();
-        let haves = Vec::new();
-        let ensures = Vec::new();
-        let forgets = Vec::new();
+        let mut agents = Vec::new();
+        let mut haves = Vec::new();
+        let mut ensures = Vec::new();
+        let mut forgets = Vec::new();
+
+        for attr in attrs {
+            match attr {
+                AttrInfo::Agent(attr) => agents.push(attr),
+                AttrInfo::Have(attr) => haves.push(AttrInfo::have_to_meta(attr, &locs)),
+                AttrInfo::Ensure(attr) => ensures.push(AttrInfo::ensure_to_meta(attr, &locs)),
+                AttrInfo::Forget(attr) => forgets.push(AttrInfo::forget_to_meta(attr, &locs)),
+            }
+        }
+
         (
             meta::FunctionId(self.def_id().into()),
             meta::Function {
@@ -91,7 +97,7 @@ impl<'tcx> FunCollector<'tcx> {
     }
 
     // Collect the attributes.
-    fn collect_attrs(&self) -> Vec<attr::AttrInfo> {
+    fn collect_attrs(&self) -> Vec<AttrInfo> {
         self.attrs()
             .into_iter()
             .map(AttrCollector::new)
@@ -103,7 +109,7 @@ impl<'tcx> FunCollector<'tcx> {
     fn collect_flows(
         &self,
         locs: impl IntoIterator<Item = meta::FunctionLocation>,
-    ) -> BTreeMap<meta::Target, Vec<meta::Target>> {
+    ) -> BTreeMap<meta::LocalTarget, Vec<meta::LocalTarget>> {
         // recursively compute the direct flow from `locs`.
         let mut direct_flow = DirectBodyFlow::new(self.tcx, self.body_id);
 
@@ -142,15 +148,15 @@ impl<'tcx> FunCollector<'tcx> {
         &self,
         local: Local,
         deps: FlowSet<'tcx, '_>,
-    ) -> Vec<(meta::Target, meta::Target)> {
+    ) -> Vec<(meta::LocalTarget, meta::LocalTarget)> {
         deps.iter()
             .filter_map(|loc_arg| match loc_arg {
                 LocationOrArg::Arg(_) => None,
                 LocationOrArg::Location(loc) => match self.body().stmt_at(*loc) {
                     Either::Left(Statement { kind, .. }) => match kind {
                         StatementKind::Assign(assign) => Some(vec![(
-                            meta::Target::Local(meta::FunctionLocation(local)),
-                            meta::Target::Local(meta::FunctionLocation(assign.0.local)),
+                            meta::LocalTarget::Local(meta::FunctionLocation(local)),
+                            meta::LocalTarget::Local(meta::FunctionLocation(assign.0.local)),
                         )]),
                         _ => None,
                     },
@@ -173,18 +179,18 @@ impl<'tcx> FunCollector<'tcx> {
                                 .flat_map(move |(i, _)| {
                                     [
                                         (
-                                            meta::Target::Local(meta::FunctionLocation(local)),
-                                            meta::Target::Call(meta::Call {
+                                            meta::LocalTarget::Local(meta::FunctionLocation(local)),
+                                            meta::LocalTarget::Call(meta::Call {
                                                 fun: meta::FunctionId(id),
                                                 idx: i,
                                             }),
                                         ),
                                         (
-                                            meta::Target::Call(meta::Call {
+                                            meta::LocalTarget::Call(meta::Call {
                                                 fun: meta::FunctionId(id),
                                                 idx: i,
                                             }),
-                                            meta::Target::Local(meta::FunctionLocation(
+                                            meta::LocalTarget::Local(meta::FunctionLocation(
                                                 destination.local,
                                             )),
                                         ),

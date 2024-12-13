@@ -1,5 +1,6 @@
-use std::iter;
+use std::{collections::BTreeMap, iter};
 
+use hermit_core::{UntypedForm, UntypedRef};
 use rustc_ast::{
     token::{Lit, LitKind, Token, TokenKind},
     tokenstream::TokenTree,
@@ -15,28 +16,7 @@ use hermit_syntax::{
     TOOL,
 };
 
-#[derive(Debug, Clone)]
-pub enum AttrInfo {
-    Agent(AgentAttribute),
-    Have(HaveAttribute),
-    Ensure(EnsureAttribute),
-    Forget(ForgetAttribute),
-}
-
-impl AttrInfo {
-    pub fn variables(&self) -> impl Iterator<Item = &hermit_syntax::lang::Ident> {
-        let iter: Box<dyn Iterator<Item = _>> = match self {
-            AttrInfo::Agent(_) => Box::new(iter::empty()),
-            AttrInfo::Have(HaveAttribute { form }) => Box::new(form.0.vocab()),
-            AttrInfo::Ensure(EnsureAttribute { form }) => Box::new(form.0.vocab()),
-            AttrInfo::Forget(ForgetAttribute {
-                subject,
-                dependencies,
-            }) => Box::new(iter::once(subject).chain(dependencies).map(|var| &var.0)),
-        };
-        iter
-    }
-}
+use crate::meta;
 
 pub struct AttrCollector<'a> {
     attr: &'a Attribute,
@@ -112,5 +92,121 @@ impl<'a> AttrCollector<'a> {
 
     fn collect_forget(&self, arg: &str) -> AttrInfo {
         AttrInfo::Forget(ForgetAttribute::decode(arg))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum AttrInfo {
+    Agent(AgentAttribute),
+    Have(HaveAttribute),
+    Ensure(EnsureAttribute),
+    Forget(ForgetAttribute),
+}
+
+impl AttrInfo {
+    pub fn variables(&self) -> impl Iterator<Item = &hermit_syntax::lang::Ident> {
+        let iter: Box<dyn Iterator<Item = _>> = match self {
+            AttrInfo::Agent(_) => Box::new(iter::empty()),
+            AttrInfo::Have(HaveAttribute { form }) => Box::new(form.0.vocab()),
+            AttrInfo::Ensure(EnsureAttribute { form }) => Box::new(form.0.vocab()),
+            AttrInfo::Forget(ForgetAttribute {
+                subject,
+                dependencies,
+            }) => Box::new(iter::once(subject).chain(dependencies).map(|var| &var.0)),
+        };
+        iter
+    }
+
+    pub fn have_to_meta(
+        attr: HaveAttribute,
+        vars: &BTreeMap<String, meta::FunctionLocation>,
+    ) -> meta::HaveAnn {
+        meta::HaveAnn {
+            form: trans_form(attr.form.0, vars),
+        }
+    }
+
+    pub fn ensure_to_meta(
+        attr: EnsureAttribute,
+        vars: &BTreeMap<String, meta::FunctionLocation>,
+    ) -> meta::EnsureAnn {
+        meta::EnsureAnn {
+            form: trans_form(attr.form.0, vars),
+        }
+    }
+
+    pub fn forget_to_meta(
+        attr: ForgetAttribute,
+        vars: &BTreeMap<String, meta::FunctionLocation>,
+    ) -> meta::ForgetAnn {
+        // TODO replace these unwraps with some nice error handling
+        let subject = meta::LocalTarget::Local(*vars.get(&attr.subject.0 .0.value).unwrap());
+        let dependencies = attr
+            .dependencies
+            .into_iter()
+            .map(|dep| *vars.get(&dep.0 .0.value).unwrap())
+            .map(meta::LocalTarget::Local)
+            .collect();
+        meta::ForgetAnn {
+            subject,
+            dependencies,
+        }
+    }
+}
+
+fn trans_form(
+    p: UntypedForm<hermit_syntax::attribute::Ident, hermit_syntax::attribute::Ident>,
+    vars: &BTreeMap<String, meta::FunctionLocation>,
+) -> UntypedForm<meta::Agent, meta::LocalTarget> {
+    match p {
+        UntypedForm::Top => UntypedForm::Top,
+        UntypedForm::Bot => UntypedForm::Bot,
+        UntypedForm::Prop(b) => {
+            UntypedForm::Prop(meta::LocalTarget::Local(*vars.get(&b.0.value).unwrap()))
+        }
+        UntypedForm::Neg(p) => UntypedForm::Neg(Box::new(trans_form(*p, vars))),
+        UntypedForm::Conj(p1, p2) => UntypedForm::Conj(
+            Box::new(trans_form(*p1, vars)),
+            Box::new(trans_form(*p2, vars)),
+        ),
+        UntypedForm::Disj(p1, p2) => UntypedForm::Disj(
+            Box::new(trans_form(*p1, vars)),
+            Box::new(trans_form(*p2, vars)),
+        ),
+        UntypedForm::Xor(p1, p2) => UntypedForm::Xor(
+            Box::new(trans_form(*p1, vars)),
+            Box::new(trans_form(*p2, vars)),
+        ),
+        UntypedForm::Impl(p1, p2) => UntypedForm::Impl(
+            Box::new(trans_form(*p1, vars)),
+            Box::new(trans_form(*p2, vars)),
+        ),
+        UntypedForm::BiImpl(p1, p2) => UntypedForm::BiImpl(
+            Box::new(trans_form(*p1, vars)),
+            Box::new(trans_form(*p2, vars)),
+        ),
+        UntypedForm::Forall(_, _) => todo!(),
+        UntypedForm::Exist(_, _) => todo!(),
+        UntypedForm::ForG(x, ags, p) => UntypedForm::ForG(
+            meta::Agent(x),
+            ags.into_iter().map(meta::Agent).collect(),
+            Box::new(trans_form(*p, vars)),
+        ),
+        UntypedForm::K(ag, p) => UntypedForm::K(
+            UntypedRef(meta::Agent(ag.0)),
+            Box::new(trans_form(*p, vars)),
+        ),
+        UntypedForm::CK(ags, p) => UntypedForm::CK(
+            ags.into_iter()
+                .map(|ag| UntypedRef(meta::Agent(ag.0)))
+                .collect(),
+            Box::new(trans_form(*p, vars)),
+        ),
+        UntypedForm::DK(ags, p) => UntypedForm::DK(
+            ags.into_iter()
+                .map(|ag| UntypedRef(meta::Agent(ag.0)))
+                .collect(),
+            Box::new(trans_form(*p, vars)),
+        ),
     }
 }

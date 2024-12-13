@@ -28,11 +28,11 @@ pub struct Function {
     pub forgets: Vec<ForgetAnn>,
 
     /// The map of important locations to their dependent calls.
-    pub flows: BTreeMap<Target, Vec<Target>>,
+    pub flows: BTreeMap<LocalTarget, Vec<LocalTarget>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Copy)]
-pub enum Target {
+pub enum LocalTarget {
     Local(FunctionLocation),
     Call(Call),
 }
@@ -52,22 +52,22 @@ pub struct Call {
 
 #[derive(Debug, Clone)]
 pub struct HaveAnn {
-    pub form: UntypedForm<Agent, FunctionLocation>,
+    pub form: UntypedForm<Agent, LocalTarget>,
 }
 
 #[derive(Debug, Clone)]
 pub struct EnsureAnn {
-    pub form: UntypedForm<Agent, FunctionLocation>,
+    pub form: UntypedForm<Agent, LocalTarget>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ForgetAnn {
-    pub subject: FunctionLocation,
-    pub dependencies: FunctionLocation,
+    pub subject: LocalTarget,
+    pub dependencies: Vec<LocalTarget>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Copy)]
-pub struct GlobalLocation {
+pub struct GlobalTarget {
     pub body: FunctionId,
-    pub local: FunctionLocation,
+    pub local: LocalTarget,
 }
