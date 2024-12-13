@@ -3,19 +3,28 @@
 
 use hermit::*;
 
-#[agent(secret)]
-#[ensure(agents a: !K[a: pwd])]
-pub fn register(username: String, pwd: String) {
-    let pwd = hash(pwd);
-    db::store(username, pwd)
+pub fn foo(a: usize) {
+    let b = bar(a);
+    let c = b;
 }
 
-#[agent(secret)]
-#[forget(digest: unhashed)]
-fn hash(unhashed: String) -> String {
-    let digest = md5::compute(unhashed);
-    format!("{:x}", digest)
-    // unhashed
+pub fn bar(a: usize) -> usize {
+    a
 }
 
-mod db;
+// #[agent(secret)]
+// #[ensure(agents a: !K[a: pwd])]
+// pub fn register(username: String, pwd: String) {
+// let pwd = hash(pwd);
+// db::store(username, pwd)
+// }
+
+// #[agent(secret)]
+// #[forget(digest: unhashed)]
+// fn hash(unhashed: String) -> String {
+// let digest = md5::compute(unhashed);
+// format!("{:x}", digest)
+// // unhashed
+// }
+
+// mod db;

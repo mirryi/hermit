@@ -14,6 +14,7 @@ rustc_plugin = "0.8.0-nightly-2024-01-06"
 rustc_utils = "0.8.0-nightly-2024-01-06"
 
 clap = { version = "4", features = ["derive"] }
+derivative = "2.2"
 flowistry = "0.5"
 itertools = "0.13"
 serde = { version = "1", features = ["derive"] }

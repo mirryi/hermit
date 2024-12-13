@@ -28,21 +28,27 @@ pub struct Function {
     pub forgets: Vec<ForgetAnn>,
 
     /// The map of important locations to their dependent calls.
-    pub flows: BTreeMap<FunctionLocation, Vec<Call>>,
+    pub flows: BTreeMap<Target, Vec<Target>>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Copy)]
+pub enum Target {
+    Local(FunctionLocation),
+    Call(Call),
+}
+
+/// A location of interest inside a function body.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Copy)]
+pub struct FunctionLocation(pub Local);
+
 /// The metadata of a call to another function that is tainted for a specific argument.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Copy)]
 pub struct Call {
     /// The called function.
     pub fun: FunctionId,
     /// The index of the tainted argument.
     pub idx: usize,
 }
-
-/// A location of interest inside a function body.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Copy)]
-pub struct FunctionLocation(pub Local);
 
 #[derive(Debug, Clone)]
 pub struct HaveAnn {
