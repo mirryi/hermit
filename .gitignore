@@ -1,6 +1,9 @@
 proposal/build/
 proposal.pdf
 
+slides/build/
+slides.pdf
+
 target/
 
 dist/

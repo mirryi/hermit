@@ -1,0 +1,228 @@
+\documentclass[14pt, aspectratio=169, xcolor={dvipsnames}]{beamer}
+\input{preamble}
+
+\usetheme{auriga}
+\usecolortheme{auriga}
+
+\title{Information Flow Control \\ via Dynamic Epistemic Logic}
+\author{
+  Eric Zhao
+}
+\institute{Brown University}
+\date{March 17, 2025}
+
+\begin{document}
+{
+  \begin{frame}
+    \titlepage
+  \end{frame}
+}
+
+\begin{frame}[c]
+  % What is information flow control?
+  \begin{itemize}
+    \item \textbf{information} \\ data, \eg passwords
+      \pause
+
+    \item \textbf{flow} \\ transfer of the information, \eg storage, network
+      \pause
+
+    \item \textbf{control} \\ enforcing \emph{policies} about the flow, \eg access control lists
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile, b]
+  \begin{lstlisting}[language=Rust]
+fn hash(unhashed_pwd: String) -> String { ... }
+fn store(username: String, hashed_pwd: String) { ... }
+
+fn register(username: String, pwd: String) {
+    store(username, pwd)
+}
+  \end{lstlisting}
+
+  \vspace{1.5em}
+  \pause
+  \begin{center}
+    \textbf{Policy} \\
+    ``The application must not store unhashed passwords.''
+  \end{center}
+\end{frame}
+
+\begin{frame}[b]
+  \begin{center}
+    \large
+    Can we talk about information flow in terms of \emph{knowledge}? \\
+  \end{center}
+
+  \vspace{1.5em}
+  \pause
+  \begin{center}
+    \textbf{Policy} \\
+    ``The database must not \emph{know} unhashed passwords.''
+  \end{center}
+\end{frame}
+
+\begin{frame}[b]{A logic for ``knowing''}
+  % There's a logic for that: epistemic logic.
+
+  Suppose some finite collection of \emph{agents}, denoted by $\alpha$.
+  %
+  \[\begin{array}{rcl}
+    \phi, \psi & \Coloneqq &
+      a \mid \top \mid \bot \mid \lnot \phi \mid \phi \land \psi \mid \phi \lor \psi \mid \phi \to \psi
+        \mid \underline{K_\alpha \phi}
+  \end{array}\]
+
+  \pause
+  This is \emph{epistemic logic}.
+  \pause
+
+  \vspace{1.5em}
+  \begin{center}
+    \textbf{Policy} \\
+    $\lnot K_{\mathtt{db}} p$
+      {\color{black!80}\small where $p = \text{``the value of \texttt{pwd}''}$}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile, c]
+  \begin{lstlisting}[language=Rust, escapeinside={(*}{*)}]
+#[agent(sec)]
+fn hash(unhashed_pwd: String) -> String { ... }
+
+#[agent((*$\mathtt{db}$*))]
+fn store(username: String, hashed_pwd: String) { ... }
+
+#[agent(sec)]
+#[ensure((*$\lnot K_{\mathtt{db}} \mathtt{pwd}$*))]
+fn register(username: String, pwd: String) {
+    store(username, pwd)
+}
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Modelling flow with announcements}
+  % But how do we model flow? _Dynamic_ epistemic logic.
+
+  \[\begin{array}{rcll}
+    \phi, \psi & \Coloneqq & \cdots \mid K_{\alpha} \phi \\ \pause
+      & \mid & [\phi!] \psi & \text{\color{gray} $\psi$ holds after publicly announcing $\phi$} \\ \pause
+      & \mid & [\phi!]_{G} \psi & \text{\color{gray} $\psi$ holds after announcing $\phi$ to $G$} \\
+  \end{array}\]
+
+  \pause
+  \begin{center}
+    $\begin{array}{rcl}
+      \text{data} & $\leftrightarrow$ & \text{propositional atoms} \\ \pause
+      \text{functions} & $\leftrightarrow$ & \text{groups of agents} \\ \pause
+      \text{function calls} & \leftrightarrow & \text{announcements}
+    \end{array}$
+  \end{center}
+
+  \begin{enumerate}
+    \pause
+    \item compute information flow graph
+
+    \pause
+    \item encode function calls as announcements
+
+    \pause
+    \item decide logical statements
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile, b]
+  \begin{lstlisting}[language=Rust, escapeinside={(*}{*)}]
+#[agent(sec)]
+fn hash(unhashed_pwd: String) -> String { ... }
+
+#[agent((*$\mathtt{db}$*))]
+fn store(username: String, hashed_pwd: String) { ... }
+
+#[agent(sec)]
+#[ensure((*$\lnot K_{\mathtt{db}} \mathtt{pwd}$*))]
+fn register(username: String, pwd: String) {
+    store(username, pwd)
+}
+  \end{lstlisting}
+
+  \pause
+  \begin{center}
+    \textbf{Policy} \\
+    $[\mathtt{pwd}]_{\{\mathtt{sec}, \mathtt{db}\}} \lnot K_{\mathtt{db}} \mathtt{pwd}$ \pause
+      {\color{red}\bfseries !!}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile, b]
+  \begin{lstlisting}[language=Rust, escapeinside={(*}{*)}]
+#[agent(sec)]
+fn hash(unhashed_pwd: String) -> String { ... }
+
+#[agent((*$\mathtt{db}$*))]
+fn store(username: String, hashed_pwd: String) { ... }
+
+#[agent(sec)]
+#[ensure((*$\lnot K_{\mathtt{db}} \mathtt{pwd}$*))]
+fn register(username: String, pwd: String) {
+    store(username, (*\uline{hash(pwd)}*))
+}
+  \end{lstlisting}
+
+  \pause
+  \begin{center}
+    \textbf{Policy} \\
+    $[\mathtt{pwd}]_{\{\mathtt{sec}, \mathtt{db}\}} \lnot K_{\mathtt{db}} \mathtt{pwd}$
+      {\color{red}\bfseries !!}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile, b]
+  \begin{lstlisting}[language=Rust, escapeinside={(*}{*)}]
+#[agent(sec)]
+#[forget(_: unhashed_pwd)]
+fn hash(unhashed_pwd: String) -> String { ... }
+
+#[agent((*$\mathtt{db}$*))]
+fn store(username: String, hashed_pwd: String) { ... }
+
+#[agent(sec)]
+#[ensure((*$\lnot K_{\mathtt{db}} \mathtt{pwd}$*))]
+fn register(username: String, pwd: String) {
+    store(username, (*\uline{hash(pwd)}*))
+}
+  \end{lstlisting}
+
+  \pause
+  \begin{center}
+    \textbf{Policy} \\
+    $[\mathtt{pwd}]_{\{\mathtt{sec}\}} \lnot K_{\mathtt{db}} \mathtt{pwd}$
+      {\color{ForestGreen}\bfseries \checkmark}
+  \end{center}
+\end{frame}
+
+\begin{frame}{\textsc{Hermit}, a compiler plugin for Rust}
+  \begin{itemize}
+    \item Compute information flow with Flowistry
+      {\hfill\small\color{black!80} [Crichton 2022]}
+
+      \begin{itemize}
+        \item Over-approximation of information flow
+        \item External libraries?
+      \end{itemize}
+
+    \pause
+    \item Decide dynamic epistemic logic with SMCDEL
+      {\hfill\small\color{black!80} [Gattinger 2018]}
+
+      \begin{itemize}
+        \item Common and distributed knowledge modalities
+      \end{itemize}
+
+    \pause
+    \item To what extent can we express and check realistic policies with dynamic epistemic logic?
+  \end{itemize}
+\end{frame}
+
+\end{document}

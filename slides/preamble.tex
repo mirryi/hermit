@@ -1,0 +1,225 @@
+\hbadness=99999
+\usepackage{silence}
+
+\usepackage[T1]{fontenc}
+\usepackage{fontawesome5}
+
+\usepackage[normalem]{ulem}
+\usepackage{soul}
+\usepackage{csquotes}
+\usepackage{textcomp}
+\usepackage{listings}
+\usepackage{listings-rust}
+\usepackage{calc}
+\usepackage{makecell}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{mathtools}
+\usepackage{thmtools}
+\usepackage{mathpartir}
+\usepackage{bm}
+\usepackage{relsize}
+\usepackage{centernot}
+\usepackage{stmaryrd}
+\usepackage{pifont}
+\WarningFilter{latexfont}{Font shape `U/stmry/b/n' undefined}
+\WarningFilter{latexfont}{Some font shapes were not available}
+
+\usepackage{scalerel}
+\usepackage[most]{tcolorbox}
+\usepackage{framed}
+
+\usepackage{pgfpages}
+\usepackage{fancyvrb}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+\usepackage{tikz}
+\usepackage{quiver}
+\usepackage{forest}
+\usetikzlibrary{arrows, arrows.meta, cd, shapes, calc, positioning, backgrounds, hobby, trees}
+
+\usepackage{xfp}
+
+% small footnotes
+\setbeamerfont{footnote}{size=\small}
+
+% default listing style
+\lstset{
+  % basicstyle=\ttfamily\footnotesize,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=1,
+  commentstyle=\color{black!60}
+}
+
+\makeatletter
+\let\HL\hl
+\renewcommand\hl{%
+  \let\set@color\beamerorig@set@color
+  \let\reset@color\beamerorig@reset@color
+  \HL}
+\makeatother
+
+\makeatletter
+\let\UL\ul
+\renewcommand\ul{%
+  \let\set@color\beamerorig@set@color
+  \let\reset@color\beamerorig@reset@color
+  \UL}
+\makeatother
+
+\newcommand{\undercolor}[2][Red]{\setulcolor{#1}\ul{#2}}
+\newcommand<>{\onderline}[1]{\alt#2{\underline{#1}}{#1}}
+\newcommand<>{\onderset}[2]{\alt#3{\underset{#1}{#2}}{#2}}
+
+\tikzset{
+  invisible/.style={opacity=0,text opacity=0},
+  visible on/.style={alt={#1{}{invisible}}},
+  alt/.code args={<#1>#2#3}{%
+    \alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}}
+  },
+  Alt/.code args={<#1>#2#3}{%
+    \Alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}}
+  },
+}
+
+\pdfstringdefDisableCommands{%
+  \def\\{}%
+  \def\underline#1{<#1>}%
+}
+
+\colorlet{highlight}{yellow!30}
+
+\tcbuselibrary{skins}
+\tcbuselibrary{listings}
+\tcbset{
+  base/.style={
+    arc=0mm, 
+    bottomtitle=0.5mm,
+    boxrule=0mm,
+    colbacktitle=black!10!white, 
+    coltitle=black!80!white, 
+    fonttitle=\bfseries, 
+    left=2.5mm,
+    right=3.5mm,
+    title={#1},
+    toptitle=0.75mm, 
+  }
+}
+
+\newtcolorbox{mainbox}[2][]{
+  enhanced,
+  colframe=black!30!white, 
+  base={#2},
+  #1
+}
+
+\newtcolorbox{subbox}[2][]{
+  enhanced,
+  colframe=black!20!white,
+  base={#2},
+  #1,
+}
+
+\newcommand{\samesizecolorbox}[2]{\makebox[\widthof{#2}]{\colorbox{#1}{#2}}}
+
+% \makeatletter
+% \def\beamer@checkframetitle{%
+% \begingroup
+  % \edef\temp{%
+    % \endgroup
+    % \noexpand\frametitle
+    % [\unexpanded\expandafter{\beamer@savedshortframetitle}]%
+    % {\unexpanded\expandafter{\beamer@savedframetitle}}%
+  % }
+% \temp
+% \@ifnextchar\bgroup\beamer@inlineframetitle{}}
+
+% \long\def\beamer@@frametitle[#1]#2{%
+  % \beamer@ifempty{#2}{}{%
+    % \gdef\insertframetitle{{#2\ifnum\beamer@autobreakcount>0\relax{}\space\usebeamertemplate*{frametitle
+% continuation}\fi}}%
+  % \gdef\beamer@frametitle{#2}%
+  % \gdef\beamer@shortframetitle{#1}%
+  % \global\let\beamer@savedshortframetitle\beamer@shortframetitle
+    % \global\let\beamer@savedframetitle\beamer@frametitle
+% }%
+% }
+  % \global\let\beamer@savedshortframetitle\@empty
+    % \global\let\beamer@savedframetitle\@empty
+
+% \makeatother
+
+\makeatletter
+\newcommand*\Alt{\alt{\Alt@branch0}{\Alt@branch1}}
+
+\newcommand\Alt@branch[3]{%
+  \begingroup
+  \ifbool{mmode}{%
+    \mathchoice{%
+      \Alt@math#1{\displaystyle}{#2}{#3}%
+    }{%
+      \Alt@math#1{\textstyle}{#2}{#3}%
+    }{%
+      \Alt@math#1{\scriptstyle}{#2}{#3}%
+    }{%
+      \Alt@math#1{\scriptscriptstyle}{#2}{#3}%
+    }%
+  }{%
+    \sbox0{#2}%
+    \sbox1{#3}%
+    \Alt@typeset#1%
+  }%
+  \endgroup
+}
+
+\newcommand\Alt@math[4]{%
+  \sbox0{$#2{#3}\m@th$}%
+  \sbox1{$#2{#4}\m@th$}%
+  \Alt@typeset#1%
+}
+
+\newcommand\Alt@typeset[1]{%
+  \ifnumcomp{\wd0}{>}{\wd1}{%
+    \def\setwider   ##1##2{##2##1##2 0}%
+    \def\setnarrower##1##2{##2##1##2 1}%
+  }{%
+    \def\setwider   ##1##2{##2##1##2 1}%
+    \def\setnarrower##1##2{##2##1##2 0}%
+  }%
+  \sbox2{}%
+  \sbox3{}%
+  \setwider2{\wd}%
+  \setwider2{\ht}%
+  \setwider2{\dp}%
+  \setnarrower3{\ht}%
+  \setnarrower3{\dp}%
+  \leavevmode
+  \rlap{\usebox#1}%
+  \usebox2%
+  \usebox3%
+}
+\makeatother
+
+\newcommand\wider[2][3em]{%
+\makebox[\linewidth][c]{%
+  \begin{minipage}{\dimexpr\textwidth+#1\relax}
+  \raggedright#2
+  \end{minipage}%
+  }%
+}
+
+\makeatletter
+\define@key {mprset}{style}[1]{\def\TirNameStyle{#1}}
+\makeatother
+
+\newenvironment{emphbox}[1]
+  {\begin{leftbar}\vspace{0.3em}\textbf{#1}\\[0.5em]}
+  {\vspace{0.3em}\end{leftbar}}
+
+\newcommand{\ie}{\emph{i.e.},\,}
+\newcommand{\eg}{\emph{e.g.},\,}
